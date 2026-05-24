@@ -128,3 +128,16 @@ I also need to call out that SQLite, while super convenient for local dev simpli
 **Claude:** Noted. Also fetched the Microsoft Learn SQLite transactions doc — key findings: no TransactionScope (SQLite doesn't support DTC); use `IDbTransaction` directly; `BeginTransaction(deferred: true)` for read-then-write operations; savepoints for optimistic concurrency. Added Transaction Pattern section and Polly as the standard retry/resilience mechanism across the app. CLAUDE.md updated to surface the transaction rule inline.
 
 CLAUDE.md updated to surface gitleaks gate, Snyk medium+ block, and RTL/FluentAssertions requirement at a glance.
+
+**User:** before I push this repo analyze it and confirm that nothing sensitive is being pushed.
+
+**Claude:** Read all four files that warranted inspection (`appsettings.json`, `appsettings.Development.json`, `launchSettings.json`, `.vscode/settings.json`) plus audited all tracked files via `git ls-files`. Findings:
+
+- All config files clean — only logging levels, localhost URLs, and the default solution pointer
+- No secrets, credentials, API keys, or connection strings anywhere in the repo
+- `SESSION_LOG.md` contains `tbithell@gmail.com` — PII, not a secret; appropriate for a public application repo
+- Two housekeeping issues fixed:
+  1. `.DS_Store` was tracked (macOS metadata file committed before the gitignore rule took effect) — untracked via `git rm --cached`
+  2. `.gitignore` updated to `!.vscode/settings.json` exception so the solution pointer stays tracked while personal VS Code configs remain ignored
+
+Repo is clear to push.
