@@ -223,3 +223,55 @@ Repo is clear to push.
 **User:** Update the session log.
 
 **Claude:** Appended this Session 3 transcript.
+
+---
+
+## Session 4
+
+**User:** I changed my mind based on a reread of the spec-kit docs. Let's /speckit-specify the kanban application described in the constitution and SESSION_LOG.md. Do you agree with my read of how to use speckit?
+
+**Claude:** Confirmed the read is correct — spec-kit is feature-by-feature, not a monolithic app spec. The auth+onboarding spec is done; the natural next spec would be the core kanban feature (boards, lanes, cards, ordering, drag-and-drop). Noted that "the kanban application" is broad and recommended scoping it to the complete board interaction loop. Asked whether user wanted to proceed with that scope or a different breakdown.
+
+**User:** OK, so sounds like my initial instinct was right, based on that I should run /speckit-plan next and then /speckit-tasks. Once I have that I should implement, check in and then move on to the next spec. right?
+
+**Claude:** Confirmed. Workflow per spec: speckit-specify ✓ → speckit-plan → speckit-tasks → implement (TDD: failing test commit → passing implementation commit per task) → commit → next spec. Noted that commits happen at each task (not just end of spec) and the Red-Green-Refactor cycle must be visible in git history per the TDD evidence requirement.
+
+**User:** Gotcha, we'll use this branch to handle 1-3, check in and then start working on implementing.
+
+**Claude:** Invoked `/speckit-plan` for `001-auth-onboarding`.
+
+Ran `setup-plan.sh --json` — plan template copied to `specs/001-auth-onboarding/plan.md`. Surfaced optional `before_plan` git commit hook.
+
+Loaded spec.md, constitution, research documents. Generated all Phase 0 and Phase 1 artifacts:
+
+- **plan.md**: Technical context (.NET 10 + React, all dependencies), constitution check (all 17 gates PASS), full source layout for 8 backend projects + 3 test directories + frontend, post-Phase-1 re-check table.
+- **research.md**: Six decisions — (1) token: 256-bit random, SHA-256 hash stored, raw token returned once; (2) OIDC `OnTicketReceived`: claim injection, admin first-sign-in linking, unregistered users handled by RegisteredUser policy (not redirect); (3) accept flow: SPA-driven — token stays in URL param through OAuth round-trip, AcceptInvitePage auto-calls accept after return; (4) concurrent acceptance: single deferred-txn UPDATE with `consumed_at IS NULL` guard + Polly retry; (5) admin seeding: DbUp `WithVariable` from `SeedOptions`; (6) `ICurrentUserService`: claims-based identity seam for Business layer.
+- **data-model.md**: User + Invitation aggregate roots with Verify.That guards, InvitationToken value object, AuthEvent record, SQL schema (SQLite + Postgres variants), repository interfaces with `TryConsumeAsync` concurrent-safe pattern.
+- **contracts/endpoints.md**: All 5 endpoints (GET /auth/me, GET /auth/signin, POST /auth/signout, POST /invites, POST /invites/{token}/accept) with request/response shapes, auth requirements, error codes.
+- **contracts/dtos.md**: CurrentUserDto, IssueInviteRequest, IssueInviteResponse with mapping transforms.
+- **quickstart.md**: Full dev setup walkthrough (Google Cloud Console, user secrets, migrations, first sign-in, issue invite, accept invite, run all test layers).
+
+Updated CLAUDE.md `<!-- SPECKIT START -->` block to reference `@specs/001-auth-onboarding/plan.md`.
+
+Ran `/speckit-git-commit` (after_plan hook) — committed 7 files, 1152 lines as `8139fc2`.
+
+**User:** `/speckit-tasks` for `@specs/001-auth-onboarding/plan.md`
+
+**Claude:** Ran `setup-tasks.sh --json`. Loaded plan.md, spec.md, data-model.md, contracts/, research.md, quickstart.md. Surfaced optional `before_tasks` git commit hook.
+
+Generated `specs/001-auth-onboarding/tasks.md` — 81 tasks across 6 phases:
+
+- **Phase 1 — Setup** (T001–T011): Solution + 8 projects + project references, NuGet packages, appsettings.json shape, .editorconfig, frontend npm packages, ESLint/Prettier, lint-staged hook, gitleaks hook install, xUnit test projects, Playwright e2e project, RTL/Jest setup.
+- **Phase 2 — Foundation** (T012–T040): TDD'd — Verify.cs (T012 RED, T013 GREEN), exception hierarchy (T014–T015), domain entities User + Invitation + InvitationToken + AuthEvent (T016–T023 RED/GREEN pairs), DB migrations SQLite + Postgres (T024–T026), repository interfaces + implementations with integration tests (T027–T033), API infrastructure Program.cs with DbUp, options ValidateOnStart, health checks, CORS, versioning, OpenAPI, rate limiter, error handler chain (T034–T037), test builders UserBuilder + InvitationBuilder (T038–T039), TanStack QueryClient setup (T040).
+- **Phase 3 — US1 Admin Sign-In + Gate** (T041–T055): All 4 test layers written first (RED), then GoogleIdentityAdapter, AuthService (OnTicketReceived logic), CurrentUserService, RegisteredUserRequirement/Handler, OIDC wiring in Program.cs, AuthEndpoints, SignInPage, NotRegisteredPage, useCurrentUser hook, React Router setup.
+- **Phase 4 — US2 Admin Issues Invitation** (T056–T065): Tests first (RED), then mapping transforms, FluentValidation, InvitationService.IssueAsync, POST /invites endpoint, useIssueInvite hook, InviteUserDialog.
+- **Phase 5 — US3 Invitee Accepts** (T066–T073): Tests first (RED) including 20-concurrent-request test, then InvitationService.AcceptAsync with Polly retry on SQLITE_BUSY, POST /invites/{token}/accept endpoint with in-place cookie refresh (HttpContext.SignInAsync after user created), useAcceptInvite hook, AcceptInvitePage.
+- **Phase 6 — Polish** (T074–T081): FR-021 audit PII check, SC-005 identical-refusal-message gate, SC-007 concurrent acceptance verification, quickstart validation, Snyk, gitleaks, coverage ≥ 90%, session log.
+
+Dependency and parallel execution order documented. MVP checkpoint: after Phase 3, US1 is independently demonstrable.
+
+Ran `/speckit-git-commit` — committed tasks.md as `36c2ee5`.
+
+**User:** Update the session log.
+
+**Claude:** Appended this Session 4 transcript.
