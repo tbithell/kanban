@@ -141,3 +141,85 @@ CLAUDE.md updated to surface gitleaks gate, Snyk medium+ block, and RTL/FluentAs
   2. `.gitignore` updated to `!.vscode/settings.json` exception so the solution pointer stays tracked while personal VS Code configs remain ignored
 
 Repo is clear to push.
+
+---
+
+## Session 2
+
+**User:** This session is being continued from a previous conversation. Reviewed the constitution for completeness.
+
+**Claude:** Identified ten gaps: error handling strategy, frontend state management, authorization model, CORS configuration, drag and drop, local secrets management, structured logging, OpenAPI/Swagger, API versioning, and developer onboarding. Recommended consulting Microsoft Learn MCP for items 1–5.
+
+**User:** For 1-5 use the MS Learn MCP to determine best practices for each one. I want you to provide a detailed plan for each that I'll approve one at a time. Error handling needs to be secure and user-friendly. Front end state management must follow best practices. The authorization model must factor in that we are relying on Google for authentication. Let's not overcomplicate CORS. dnd-kit will do for drag and drop. Local secrets management using dotnet user-secrets. Structured logging with ILogger, consult MS Learn. Let's mention OpenAPI/Swagger. Standard API versioning. Include developer onboarding/local development details.
+
+**Claude:** Fetched Microsoft Learn docs for error handling (RFC 7807, IExceptionHandler, Problem Details), CORS (named policies, middleware order, security pitfalls), resource-based authorization (IAuthorizationService, AuthorizationHandler), structured logging (ILogger, log levels), OpenAPI (Microsoft.AspNetCore.OpenApi, Scalar), user secrets (dotnet user-secrets, auto-loaded in Development), and TanStack Query overview. Presented all ten plans for sequential approval.
+
+**User:** Error handling strategy looks pretty good. We are missing a custom exception hierarchy for domain-specific errors, global error handling middleware and network error recovery. Error boundary should be as small as makes sense. Data loss prevention must be avoided.
+
+**Claude:** Added three amendments to Plan 1: (A) custom exception hierarchy (KanbanException → DomainException/InfrastructureException with typed Code strings), (B) IExceptionHandler chain (DomainExceptionHandler, InfrastructureExceptionHandler, FallbackExceptionHandler), (C) network error recovery, three-level error boundaries (Board/Lane/Card), and five data loss prevention rules.
+
+**User:** We just need to add the requirement that public method signature parameters are verified first thing in a method via a fluent interface verify class.
+
+**Claude:** Added fluent Verify class to Plan 1: static Verify.That<T>() entry point using CallerArgumentExpression, ParameterVerifier<T> with IsNotNull()/IsNotDefault(), type-specific extension methods, exempt nullable/optional params, lives in Kanban.Domain. Plan 1 approved.
+
+**User:** Plans 2 (TanStack Query) and 3 reviewed. Plan 3 — we don't intend to let anyone with a Google account get past the API layer without an invite.
+
+**Claude:** Updated Plan 3 with three-layer access model: Google OAuth → RegisteredUser policy → BoardMembershipRequirement. Unregistered Google users receive 403. Invite flow with single-use 7-day tokens.
+
+**User:** Let's go with an admin user role that is able to create new boards and onboard people to them. We'll seed that initial role.
+
+**Claude:** Added Admin system role. Only Admin can create boards; Admin and Owner can send invites. Two authorization policies: RegisteredUser and Admin. Initial Admin seeded via DbUp migration with email from Seed:AdminEmail user secret. Plans 3–10 approved sequentially.
+
+**Claude:** Invoked /speckit-constitution with all ten amendments as a single MINOR version bump. Bumped constitution from v1.3.0 → v1.4.0. Added ten new sections: Authorization Model, Error Handling (including Verify class and data loss prevention), Frontend State Management, Drag and Drop, CORS Configuration, API Versioning, OpenAPI, Structured Logging, Local Secrets Management, Developer Onboarding. Updated stack table with five new rows. Templates required no changes.
+
+---
+
+## Session 3
+
+**User:** Review the constitution, break up into a committee of experts that are experts in each specific area. The review should serve two purposes. Identify things that are missing and suggest meaningful and impactful edits. If this were to make it to production it'd almost certainly be containerized, so let's make sure we are set up to avoid rework for that eventuality.
+
+**Claude:** Convened an eight-expert committee (Cloud/Platform, SRE/Observability, Security, Backend/.NET, Frontend/React, Database, DevOps/CI-CD, QA/Test) and produced a punch list of missing items and recommended edits. Container-readiness items called out throughout: stateless API principle, health checks, graceful shutdown, forwarded headers, Options pattern with `ValidateOnStart`, OpenTelemetry, security headers, rate limiting, chiseled base image, Testcontainers in CI, frontend deployment model. Proposed three batches: A (Container Readiness), B (Observability & Resilience), C (CI/CD & Test Infrastructure).
+
+**User:** Let's take a batch at a time, show me the changes for batch A.
+
+**Claude:** Drafted Batch A — three new peer sections (Containerization Readiness, Health & Lifecycle, Configuration & Options Pattern) plus six targeted edits (Snyk Container bullet, Local Secrets container caveat, DB Portability cross-reference, CORS forwarded-headers note, four stack table rows, version footer). Container readiness items: chiseled base image, .dockerignore rules, SQLite-in-container caveat (Postgres recommended), `UseForwardedHeaders` as first middleware. Health & Lifecycle: `/health/live` (no DB) + `/health/ready` (DB check), graceful shutdown via `ShutdownTimeout`, DbUp journal table as natural multi-replica migration lock. Configuration: sealed options classes, `[Required]` + `init`-only, `.ValidateDataAnnotations().ValidateOnStart()` non-negotiable.
+
+**User:** Looks good, add the edits and then let's get ready for B.
+
+**Claude:** Applied Batch A — bumped constitution to v1.5.0 (MINOR). Drafted Batch B preview: Logging & Observability (rename + OpenTelemetry/tracing/metrics expansion), HTTP Resilience (`Microsoft.Extensions.Http.Resilience`), Rate Limiting (built-in `AddRateLimiter`), Security Headers (`NetEscapades`, HSTS, CSP with Fluent UI carve-out). Open question on OpenTelemetry exporter: enabled-by-default-locally pointing at Aspire Dashboard vs. wired-but-disabled.
+
+**User:** Let's go with your recommendation.
+
+**Claude:** Drafted Batch B with Aspire Dashboard as the local OTel backend (single `docker run`, UI at :18888, OTLP at :4317). Logging & Observability adds Correlation ID middleware, Distributed Tracing (one `ActivitySource` per project, business spans required, PII rules apply to tags), Metrics (HTTP duration, DB duration, auth/ratelimit counters), OTel exporter driven by `OTEL_EXPORTER_OTLP_ENDPOINT` env var, stdout logging preserved alongside OTLP. HTTP Resilience: `IHttpClientFactory` + `AddStandardResilienceHandler()`, `new HttpClient()` forbidden. Rate Limiting: three policies (anonymous/authenticated/mutating) configured via typed options, 429 + Retry-After, distributed Redis migration documented as future. Security Headers: HSTS, CSP with `style-src 'unsafe-inline'` for Fluent UI/Griffel runtime styling (script-src stays strict), Permissions-Policy denying sensitive features. Documented the nonce-pipeline rejection rationale.
+
+**User:** Looks good, let's add these and move on to plan C.
+
+**Claude:** Applied Batch B — bumped constitution to v1.6.0 (MINOR). Drafted Batch C preview: CI/CD Gates (GitHub Actions, required status checks, branching strategy), Testcontainers in CI (real Postgres for integration tests), Frontend Build & Deploy Model (separate static container), Test Data Builders (Object Mother pattern). Two open questions: merge-commit vs squash (recommended merge-commit to preserve Red-Green-Refactor TDD evidence required by Principle II); nginx-alpine vs Node static-server (recommended nginx-alpine).
+
+**User:** Your suggestions for Q1 and Q2 is good.
+
+**Claude:** Drafted Batch C with merge-commit + nginx-alpine. CI/CD Gates section: GitHub Actions platform, pipeline shape (build → all four test layers → Snyk SCA/SAST/License/Container → gitleaks → image to GHCR), required status checks named explicitly, immutable `sha-<commit>` tag for deploys, PR template requirements, concurrency cancel-in-progress, Playwright trace/video artifacts on failure, failure triage rule. Testcontainers section: `PostgreSqlContainer` + xUnit `IAsyncLifetime`, same test suite runs against SQLite locally AND Postgres in CI, migrations validated against fresh Postgres. Frontend Build & Deploy Model: separate nginx-alpine container with SPA fallback + cache headers (hashed assets immutable, index.html no-cache), Vite `build.sourcemap: 'hidden'` (maps emitted, not shipped), bundle budget 300KB initial JS gzipped enforced via size-limit, single-image rejection documented. Test Data Builders: Object Mother + Builder, `tests/unit/Builders/`, defaults must produce valid entities.
+
+**User:** Make the changes.
+
+**Claude:** Applied Batch C — bumped constitution to v1.7.0 (MINOR). All three committee batches now in. Constitution went from v1.4.0 architecture document to v1.7.0 production-ready blueprint with explicit containerization seams, full observability stack, declarative HTTP resilience, rate limiting, security headers, CI gates, and integration-test parity with production Postgres.
+
+**User:** Last thing — is this constitution all set, too much, or sufficiently comprehensive?
+
+**Claude:** Honest assessment: 2061 lines / 32 sections is comprehensive, leaning toward over-specified for an MVP — but defensible as an architectural target rather than a day-1 build list. Identified what's right-sized (Principles I–IX, Authorization, Error Handling, Transaction Pattern, DDD, Solution Structure, the seam-decision sections) and what's potentially over-specified (specific bundle-size budgets, three-level error boundary prose, multi-paragraph CSP rationale, Failure Triage Rule, full Test Data Builder code example). Flagged the real risk: spec-kit gates every feature against the constitution; if the first spec treats every section as "implement now," MVP never ships. Recommended adding a "MVP Implementation Order" section to scope each constitutional section into (a) implement now, (b) wire seam / stub, (c) future.
+
+**User:** Yes [add the MVP Implementation Order section].
+
+**Claude:** Started adding the section.
+
+**User:** Yes, but let's also cut the 400 lines you say you can cut.
+
+**Claude:** Re-read the full file to identify precise cut targets.
+
+**User:** Nevermind I want to take your suggestion to leave it as is but let's prevent getting bogged down during MVP development. I need this to be able to be shown as working locally in the end, playwright tested etc, but it will not deploy.
+
+**Claude:** Reverted the cuts decision. Tailored the MVP Implementation Order section specifically to "local demo + all four test layers passing + recordable, no deploy." Scoping table classifies sections as: (a) implement now — all 9 principles, full auth/error/domain stack, HTTP Resilience (Google OIDC needs it), Security Headers (cheap hygiene), Health endpoints, CI for tests/Snyk/gitleaks but not container publish; (b) wire seam — OTel exporter registered with no required backend, Rate Limiting with permissive defaults, no Dockerfile, Vite dev server as only frontend deploy, SQLite-only integration tests acceptable; (c) defer — container deploy, nginx-alpine production image, Postgres runtime, APIM, GHCR publish, HSTS preload, distributed rate limiting. Rules: spec's Constitution Check must reference the table; promoting (b)/(c) to (a) requires Complexity Tracking justification; demoting (a) not permitted post-approval. Bumped constitution to v1.7.1 (PATCH — scoping clarification, not architectural change).
+
+**User:** Update the session log.
+
+**Claude:** Appended this Session 3 transcript.
