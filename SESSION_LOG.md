@@ -275,3 +275,19 @@ Ran `/speckit-git-commit` — committed tasks.md as `36c2ee5`.
 **User:** Update the session log.
 
 **Claude:** Appended this Session 4 transcript.
+
+---
+
+## Session 5
+
+**User:** Let's use repo issues for tracking story work. Use the GitHub MCP to create an issue related to the current branch. I want to establish a naming convention for feature issues.
+
+**Claude:** Proposed convention: `feat(NNN): Short feature name` — mirrors conventional commit style; `NNN` matches the spec directory prefix (e.g. `feat(001): Authentication & User Onboarding`). Labels: `feature` + `spec/NNN-branch-name`. Attempted GitHub MCP; `gh` CLI was not installed.
+
+**User:** ok I'm logged in [after installing and authenticating `gh`]
+
+**Claude:** Created labels `feature` (blue) and `spec/001-auth-onboarding` (purple). Created GitHub issue #1 — `feat(001): Authentication & User Onboarding` — with branch reference, spec/plan links, scope summary, and all three user stories. Issue URL: https://github.com/tbithell/kanban/issues/1.
+
+**User:** Update the session log.
+
+**Claude:** Appended this Session 5 transcript.

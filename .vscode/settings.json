@@ -1,3 +1,5 @@
 {
-    "dotnet.defaultSolution": "Kanban.slnx"
+    "dotnet.defaultSolution": "Kanban.slnx",
+    "snyk.advanced.organization": "53a12d40-5dfa-4098-9357-01b00f0f1750",
+    "snyk.advanced.autoSelectOrganization": true
 }
