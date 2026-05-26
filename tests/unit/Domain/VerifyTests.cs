@@ -8,149 +8,167 @@ public class VerifyTests
     [Fact]
     public void IsNotNull_WhenNull_ThrowsArgumentNullException()
     {
-        string? value = null;
-        var act = () => Verify.That(value!).IsNotNull();
-        act.Should().Throw<ArgumentNullException>().WithParameterName("value");
+        string nullStr = null!;
+        var act = () => Verify.That(nullStr).IsNotNull();
+        act.Should().Throw<ArgumentNullException>().WithParameterName("nullStr");
     }
 
     [Fact]
     public void IsNotNull_WhenNotNull_DoesNotThrow()
     {
-        var act = () => Verify.That("hello").IsNotNull();
+        string greeting = "hello";
+        var act = () => Verify.That(greeting).IsNotNull();
         act.Should().NotThrow();
     }
 
     [Fact]
     public void IsNotDefault_WhenGuidEmpty_ThrowsArgumentException()
     {
-        var act = () => Verify.That(Guid.Empty).IsNotDefault();
-        act.Should().Throw<ArgumentException>().WithParameterName("value");
+        Guid id = Guid.Empty;
+        var act = () => Verify.That(id).IsNotDefault();
+        act.Should().Throw<ArgumentException>().WithParameterName("id");
     }
 
     [Fact]
     public void IsNotDefault_WhenZeroInt_ThrowsArgumentException()
     {
-        var act = () => Verify.That(0).IsNotDefault();
-        act.Should().Throw<ArgumentException>().WithParameterName("value");
+        int count = 0;
+        var act = () => Verify.That(count).IsNotDefault();
+        act.Should().Throw<ArgumentException>().WithParameterName("count");
     }
 
     [Fact]
     public void IsNotDefault_WhenValidGuid_DoesNotThrow()
     {
-        var act = () => Verify.That(Guid.NewGuid()).IsNotDefault();
+        Guid id = Guid.NewGuid();
+        var act = () => Verify.That(id).IsNotDefault();
         act.Should().NotThrow();
     }
 
     [Fact]
     public void IsNotEmpty_String_WhenEmpty_ThrowsArgumentException()
     {
-        var act = () => Verify.That(string.Empty).IsNotNull().IsNotEmpty();
-        act.Should().Throw<ArgumentException>().WithParameterName("value");
+        string email = string.Empty;
+        var act = () => Verify.That(email).IsNotNull().IsNotEmpty();
+        act.Should().Throw<ArgumentException>().WithParameterName("email");
     }
 
     [Fact]
     public void IsNotEmpty_String_WhenNotEmpty_DoesNotThrow()
     {
-        var act = () => Verify.That("hello").IsNotNull().IsNotEmpty();
+        string email = "user@example.com";
+        var act = () => Verify.That(email).IsNotNull().IsNotEmpty();
         act.Should().NotThrow();
     }
 
     [Fact]
     public void HasMaxLength_WhenExceeds_ThrowsArgumentException()
     {
-        var act = () => Verify.That("toolong").IsNotNull().HasMaxLength(3);
-        act.Should().Throw<ArgumentException>().WithParameterName("value");
+        string name = "toolong";
+        var act = () => Verify.That(name).IsNotNull().HasMaxLength(3);
+        act.Should().Throw<ArgumentException>().WithParameterName("name");
     }
 
     [Fact]
     public void HasMaxLength_WhenWithinLimit_DoesNotThrow()
     {
-        var act = () => Verify.That("ok").IsNotNull().HasMaxLength(10);
+        string name = "ok";
+        var act = () => Verify.That(name).IsNotNull().HasMaxLength(10);
         act.Should().NotThrow();
     }
 
     [Fact]
     public void IsPositive_WhenZero_ThrowsArgumentException()
     {
-        var act = () => Verify.That(0).IsPositive();
-        act.Should().Throw<ArgumentException>().WithParameterName("value");
+        int position = 0;
+        var act = () => Verify.That(position).IsPositive();
+        act.Should().Throw<ArgumentException>().WithParameterName("position");
     }
 
     [Fact]
     public void IsPositive_WhenNegative_ThrowsArgumentException()
     {
-        var act = () => Verify.That(-1).IsPositive();
-        act.Should().Throw<ArgumentException>().WithParameterName("value");
+        int position = -1;
+        var act = () => Verify.That(position).IsPositive();
+        act.Should().Throw<ArgumentException>().WithParameterName("position");
     }
 
     [Fact]
     public void IsPositive_WhenPositive_DoesNotThrow()
     {
-        var act = () => Verify.That(1).IsPositive();
+        int position = 1;
+        var act = () => Verify.That(position).IsPositive();
         act.Should().NotThrow();
     }
 
     [Fact]
     public void IsNonNegative_WhenNegative_ThrowsArgumentException()
     {
-        var act = () => Verify.That(-1).IsNonNegative();
-        act.Should().Throw<ArgumentException>().WithParameterName("value");
+        int index = -1;
+        var act = () => Verify.That(index).IsNonNegative();
+        act.Should().Throw<ArgumentException>().WithParameterName("index");
     }
 
     [Fact]
     public void IsNonNegative_WhenZero_DoesNotThrow()
     {
-        var act = () => Verify.That(0).IsNonNegative();
+        int index = 0;
+        var act = () => Verify.That(index).IsNonNegative();
         act.Should().NotThrow();
     }
 
     [Fact]
     public void IsGreaterThan_WhenEqual_ThrowsArgumentException()
     {
-        var act = () => Verify.That(5).IsGreaterThan(5);
-        act.Should().Throw<ArgumentException>().WithParameterName("value");
+        int count = 5;
+        var act = () => Verify.That(count).IsGreaterThan(5);
+        act.Should().Throw<ArgumentException>().WithParameterName("count");
     }
 
     [Fact]
     public void IsGreaterThan_WhenGreater_DoesNotThrow()
     {
-        var act = () => Verify.That(6).IsGreaterThan(5);
+        int count = 6;
+        var act = () => Verify.That(count).IsGreaterThan(5);
         act.Should().NotThrow();
     }
 
     [Fact]
     public void IsInRange_WhenBelowMin_ThrowsArgumentException()
     {
-        var act = () => Verify.That(1).IsInRange(5, 10);
-        act.Should().Throw<ArgumentException>().WithParameterName("value");
+        int length = 1;
+        var act = () => Verify.That(length).IsInRange(5, 10);
+        act.Should().Throw<ArgumentException>().WithParameterName("length");
     }
 
     [Fact]
     public void IsInRange_WhenAboveMax_ThrowsArgumentException()
     {
-        var act = () => Verify.That(11).IsInRange(5, 10);
-        act.Should().Throw<ArgumentException>().WithParameterName("value");
+        int length = 11;
+        var act = () => Verify.That(length).IsInRange(5, 10);
+        act.Should().Throw<ArgumentException>().WithParameterName("length");
     }
 
     [Fact]
     public void IsInRange_WhenWithinRange_DoesNotThrow()
     {
-        var act = () => Verify.That(7).IsInRange(5, 10);
+        int length = 7;
+        var act = () => Verify.That(length).IsInRange(5, 10);
         act.Should().NotThrow();
     }
 
     [Fact]
-    public void IsNotEmpty_Collection_WhenEmpty_ThrowsArgumentException()
+    public void IsNotEmptyCollection_WhenEmpty_ThrowsArgumentException()
     {
-        var empty = Array.Empty<int>();
-        var act = () => Verify.That(empty).IsNotEmptyCollection();
-        act.Should().Throw<ArgumentException>().WithParameterName("value");
+        int[] items = Array.Empty<int>();
+        var act = () => Verify.That(items).IsNotEmptyCollection();
+        act.Should().Throw<ArgumentException>().WithParameterName("items");
     }
 
     [Fact]
-    public void IsNotEmpty_Collection_WhenHasItems_DoesNotThrow()
+    public void IsNotEmptyCollection_WhenHasItems_DoesNotThrow()
     {
-        var items = new[] { 1, 2, 3 };
+        int[] items = [1, 2, 3];
         var act = () => Verify.That(items).IsNotEmptyCollection();
         act.Should().NotThrow();
     }
