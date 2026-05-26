@@ -160,9 +160,11 @@ public sealed class UserRepositoryTests : IDisposable
         found!.RegisteredAt.Should().Be(registeredAt);
     }
 
+    private const string AutoSub = "auto";
+
     private static User BuildUser(
         string? email = null,
-        string? googleSub = "default-sub",
+        string? googleSub = AutoSub,
         SystemRole systemRole = SystemRole.Standard,
         DateTimeOffset? registeredAt = null) =>
         new(
@@ -170,7 +172,7 @@ public sealed class UserRepositoryTests : IDisposable
             email: email ?? $"user_{Guid.NewGuid():N}@test.local",
             displayName: "Test User",
             systemRole: systemRole,
-            googleSub: googleSub,
+            googleSub: googleSub == AutoSub ? $"sub_{Guid.NewGuid():N}" : googleSub,
             registeredAt: registeredAt ?? DateTimeOffset.UtcNow,
             lastSignInAt: null);
 }

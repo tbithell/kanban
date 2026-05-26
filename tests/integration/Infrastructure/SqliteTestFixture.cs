@@ -1,6 +1,7 @@
 using System.Data;
 using System.Reflection;
 using DbUp;
+using DbUp.Sqlite;
 using Kanban.DataAccess;
 using Microsoft.Data.Sqlite;
 
@@ -32,7 +33,7 @@ public sealed class SqliteTestFixture : IAsyncLifetime
             ?? Assembly.Load("Kanban.Data");
 
         var result = DeployChanges.To
-            .SQLiteDatabase(ConnectionString)
+            .SqliteDatabase(ConnectionString)
             .WithScriptsEmbeddedInAssembly(
                 dataAssembly,
                 name => name.Contains("sqlite", StringComparison.OrdinalIgnoreCase))

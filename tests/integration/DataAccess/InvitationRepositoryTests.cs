@@ -15,6 +15,7 @@ public sealed class InvitationRepositoryTests : IDisposable
     private readonly InvitationRepository _sut;
     private readonly UserRepository _users;
     private readonly Guid _issuerId;
+    private readonly Guid _consumerId;
 
     public InvitationRepositoryTests(SqliteTestFixture fixture)
     {
@@ -22,7 +23,7 @@ public sealed class InvitationRepositoryTests : IDisposable
         _connection = fixture.CreateConnection();
         _sut = new InvitationRepository(_connection);
         _users = new UserRepository(_connection);
-        _issuerId = SeedIssuer();
+        (_issuerId, _consumerId) = SeedUsers();
     }
 
     public void Dispose() => _connection.Dispose();
@@ -103,11 +104,10 @@ public sealed class InvitationRepositoryTests : IDisposable
             tx.Commit();
         }
 
-        var consumerId = Guid.NewGuid();
         bool result;
         using (var tx = _connection.BeginTransaction())
         {
-            result = await _sut.TryConsumeAsync(token.Hash, consumerId, DateTimeOffset.UtcNow, tx);
+            result = await _sut.TryConsumeAsync(token.Hash, _consumerId, DateTimeOffset.UtcNow, tx);
             tx.Commit();
         }
 
@@ -125,19 +125,17 @@ public sealed class InvitationRepositoryTests : IDisposable
             tx.Commit();
         }
 
-        var firstConsumerId = Guid.NewGuid();
         using (var tx = _connection.BeginTransaction())
         {
-            await _sut.TryConsumeAsync(token.Hash, firstConsumerId, DateTimeOffset.UtcNow, tx);
+            await _sut.TryConsumeAsync(token.Hash, _consumerId, DateTimeOffset.UtcNow, tx);
             tx.Commit();
         }
 
-        var secondConsumerId = Guid.NewGuid();
         bool secondResult;
         using (var tx = _connection.BeginTransaction())
         {
             secondResult = await _sut.TryConsumeAsync(
-                token.Hash, secondConsumerId, DateTimeOffset.UtcNow, tx);
+                token.Hash, _consumerId, DateTimeOffset.UtcNow, tx);
             tx.Commit();
         }
 
@@ -160,7 +158,7 @@ public sealed class InvitationRepositoryTests : IDisposable
         using (var tx = _connection.BeginTransaction())
         {
             result = await _sut.TryConsumeAsync(
-                token.Hash, Guid.NewGuid(), DateTimeOffset.UtcNow, tx);
+                token.Hash, _consumerId, DateTimeOffset.UtcNow, tx);
             tx.Commit();
         }
 
@@ -186,7 +184,7 @@ public sealed class InvitationRepositoryTests : IDisposable
         found.ConsumedByUserId.Should().BeNull();
     }
 
-    private Guid SeedIssuer()
+    private (Guid issuerId, Guid consumerId) SeedUsers()
     {
         var issuer = new User(
             id: Guid.NewGuid(),
@@ -197,10 +195,20 @@ public sealed class InvitationRepositoryTests : IDisposable
             registeredAt: DateTimeOffset.UtcNow,
             lastSignInAt: null);
 
+        var consumer = new User(
+            id: Guid.NewGuid(),
+            email: $"consumer_{Guid.NewGuid():N}@test.local",
+            displayName: "Consumer",
+            systemRole: SystemRole.Standard,
+            googleSub: $"sub_{Guid.NewGuid():N}",
+            registeredAt: DateTimeOffset.UtcNow,
+            lastSignInAt: null);
+
         using var tx = _connection.BeginTransaction();
         _users.InsertAsync(issuer, tx).GetAwaiter().GetResult();
+        _users.InsertAsync(consumer, tx).GetAwaiter().GetResult();
         tx.Commit();
-        return issuer.Id;
+        return (issuer.Id, consumer.Id);
     }
 
     private Invitation BuildInvitation(
