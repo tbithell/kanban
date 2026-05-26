@@ -46,41 +46,41 @@ testing of each story.
 
 ### Domain Foundation
 
-- [ ] T012 Write failing unit tests for Verify.That<T>: IsNotNull (throws ArgumentNullException), IsNotDefault (throws ArgumentException for Guid.Empty and 0), IsNotEmpty (string), HasMaxLength, IsPositive, IsNonNegative, IsGreaterThan, IsInRange, IsNotEmpty (IEnumerable) in tests/unit/Domain/VerifyTests.cs — **RED commit**
-- [ ] T013 Implement Verify.cs with static Verify.That<T>([CallerArgumentExpression] string paramName), ParameterVerifier<T> with IsNotNull/IsNotDefault, and all type-specific extension methods in src/Kanban.Domain/Verify.cs — **GREEN commit for T012**
-- [ ] T014 [P] Write failing unit tests for exception hierarchy (NotFoundException, ForbiddenException, ConflictException, BusinessRuleException, DataAccessException, ExternalServiceException — verify Code property and inheritance chain) in tests/unit/Domain/ExceptionTests.cs — **RED commit**
-- [ ] T015 [P] Implement KanbanException abstract base → DomainException (NotFoundException, ForbiddenException, ConflictException, BusinessRuleException) and InfrastructureException (DataAccessException, ExternalServiceException) with Code string property in src/Kanban.Domain/Exceptions/ — **GREEN commit for T014**
-- [ ] T016 [P] Create SystemRole (Admin, Standard) and AuthEventType (SignIn, SignOut, InvitationIssued, InvitationAccepted, AcceptanceRefused) enums in src/Kanban.Domain/Enums/SystemRole.cs and src/Kanban.Domain/Enums/AuthEventType.cs
-- [ ] T017 [P] Write failing unit tests for User entity (Verify guards throw on null/empty/default args; LinkGoogleIdentity sets GoogleSub; RecordSignIn sets LastSignInAt) in tests/unit/Domain/UserTests.cs — **RED commit**
-- [ ] T018 [P] Write failing unit tests for Invitation aggregate (IsExpired, IsConsumed, IsRedeemable computed properties; EmailMatches case-insensitive comparison; Consume sets consumed fields) in tests/unit/Domain/InvitationTests.cs — **RED commit**
-- [ ] T019 [P] Write failing unit tests for InvitationToken value object (Generate produces 43-char URL-safe base64; HashRaw produces consistent lowercase hex; two Generate calls produce different tokens; HashRaw of same input always equal) in tests/unit/Domain/InvitationTokenTests.cs — **RED commit**
-- [ ] T020 Implement User aggregate root with Verify.That guards in constructor, LinkGoogleIdentity(string googleSub), RecordSignIn(DateTimeOffset) in src/Kanban.Domain/Entities/User.cs — **GREEN commit for T017**
-- [ ] T021 [P] Implement Invitation aggregate root with IsExpired/IsConsumed/IsRedeemable/EmailMatches/Consume in src/Kanban.Domain/Entities/Invitation.cs — **GREEN commit for T018**
-- [ ] T022 [P] Implement InvitationToken value object with Generate() (RandomNumberGenerator.GetBytes(32) → URL-safe base64) and HashRaw() (SHA256 hex) in src/Kanban.Domain/ValueObjects/InvitationToken.cs — **GREEN commit for T019**
-- [ ] T023 [P] Implement AuthEvent record (Id, OccurredAt, EventType, UserId?, Outcome) in src/Kanban.Domain/Events/AuthEvent.cs
+- [X] T012 Write failing unit tests for Verify.That<T>: IsNotNull (throws ArgumentNullException), IsNotDefault (throws ArgumentException for Guid.Empty and 0), IsNotEmpty (string), HasMaxLength, IsPositive, IsNonNegative, IsGreaterThan, IsInRange, IsNotEmpty (IEnumerable) in tests/unit/Domain/VerifyTests.cs — **RED commit**
+- [X] T013 Implement Verify.cs with static Verify.That<T>([CallerArgumentExpression] string paramName), ParameterVerifier<T> with IsNotNull/IsNotDefault, and all type-specific extension methods in src/Kanban.Domain/Verify.cs — **GREEN commit for T012**
+- [X] T014 [P] Write failing unit tests for exception hierarchy (NotFoundException, ForbiddenException, ConflictException, BusinessRuleException, DataAccessException, ExternalServiceException — verify Code property and inheritance chain) in tests/unit/Domain/ExceptionTests.cs — **RED commit**
+- [X] T015 [P] Implement KanbanException abstract base → DomainException (NotFoundException, ForbiddenException, ConflictException, BusinessRuleException) and InfrastructureException (DataAccessException, ExternalServiceException) with Code string property in src/Kanban.Domain/Exceptions/ — **GREEN commit for T014**
+- [X] T016 [P] Create SystemRole (Admin, Standard) and AuthEventType (SignIn, SignOut, InvitationIssued, InvitationAccepted, AcceptanceRefused) enums in src/Kanban.Domain/Enums/SystemRole.cs and src/Kanban.Domain/Enums/AuthEventType.cs
+- [X] T017 [P] Write failing unit tests for User entity (Verify guards throw on null/empty/default args; LinkGoogleIdentity sets GoogleSub; RecordSignIn sets LastSignInAt) in tests/unit/Domain/UserTests.cs — **RED commit**
+- [X] T018 [P] Write failing unit tests for Invitation aggregate (IsExpired, IsConsumed, IsRedeemable computed properties; EmailMatches case-insensitive comparison; Consume sets consumed fields) in tests/unit/Domain/InvitationTests.cs — **RED commit**
+- [X] T019 [P] Write failing unit tests for InvitationToken value object (Generate produces 43-char URL-safe base64; HashRaw produces consistent lowercase hex; two Generate calls produce different tokens; HashRaw of same input always equal) in tests/unit/Domain/InvitationTokenTests.cs — **RED commit**
+- [X] T020 Implement User aggregate root with Verify.That guards in constructor, LinkGoogleIdentity(string googleSub), RecordSignIn(DateTimeOffset) in src/Kanban.Domain/Entities/User.cs — **GREEN commit for T017**
+- [X] T021 [P] Implement Invitation aggregate root with IsExpired/IsConsumed/IsRedeemable/EmailMatches/Consume in src/Kanban.Domain/Entities/Invitation.cs — **GREEN commit for T018**
+- [X] T022 [P] Implement InvitationToken value object with Generate() (RandomNumberGenerator.GetBytes(32) → URL-safe base64) and HashRaw() (SHA256 hex) in src/Kanban.Domain/ValueObjects/InvitationToken.cs — **GREEN commit for T019**
+- [X] T023 [P] Implement AuthEvent record (Id, OccurredAt, EventType, UserId?, Outcome) in src/Kanban.Domain/Events/AuthEvent.cs
 
 ### Database
 
-- [ ] T024 Create SQLite migration 001_initial_schema.sql (users, invitations, auth_events tables with UNIQUE constraints and indexes per data-model.md schema) in src/Kanban.Data/migrations/sqlite/001_initial_schema.sql
-- [ ] T025 [P] Create SQLite migration 002_seed_admin.sql with DbUp variable substitution ($AdminEmail$, $AdminUserId$, $SeedTimestamp$) in src/Kanban.Data/migrations/sqlite/002_seed_admin.sql
-- [ ] T026 [P] Create Postgres variants of both migrations (INSERT OR IGNORE → INSERT INTO ... ON CONFLICT DO NOTHING) in src/Kanban.Data/migrations/postgres/
+- [X] T024 Create SQLite migration 001_initial_schema.sql (users, invitations, auth_events tables with UNIQUE constraints and indexes per data-model.md schema) in src/Kanban.Data/migrations/sqlite/001_initial_schema.sql
+- [X] T025 [P] Create SQLite migration 002_seed_admin.sql with DbUp variable substitution ($AdminEmail$, $AdminUserId$, $SeedTimestamp$) in src/Kanban.Data/migrations/sqlite/002_seed_admin.sql
+- [X] T026 [P] Create Postgres variants of both migrations (INSERT OR IGNORE → INSERT INTO ... ON CONFLICT DO NOTHING) in src/Kanban.Data/migrations/postgres/
 
 ### Data Access
 
-- [ ] T027 Define IUserRepository, IInvitationRepository, IAuthEventRepository interfaces per data-model.md Repository Interfaces section in src/Kanban.DataAccess/Interfaces/
-- [ ] T028 [P] Write failing integration tests for UserRepository (FindByGoogleSub, FindByEmail, FindById, Insert, LinkGoogleSub, UpdateLastSignIn — all against real SQLite via SqliteTestFixture) in tests/integration/DataAccess/UserRepositoryTests.cs — **RED commit**
-- [ ] T029 [P] Write failing integration tests for InvitationRepository (FindByTokenHash, FindActiveByEmail, Insert, TryConsumeAsync returns true first call and false on second call with same token) in tests/integration/DataAccess/InvitationRepositoryTests.cs — **RED commit**
-- [ ] T030 Create SqliteTestFixture implementing IAsyncLifetime (runs DbUp migrations against Microsoft.Data.Sqlite in-memory DB, exposes IDbConnection) in tests/integration/Infrastructure/SqliteTestFixture.cs and [CollectionDefinition] in tests/integration/Infrastructure/SqliteCollection.cs
-- [ ] T031 Implement UserRepository using Dapper with parameterized @paramName queries; all write methods accept IDbTransaction; no string interpolation in SQL in src/Kanban.DataAccess/Repositories/UserRepository.cs — **GREEN commit for T028**
-- [ ] T032 [P] Implement InvitationRepository with Dapper; TryConsumeAsync executes the single UPDATE with consumed_at IS NULL guard and returns rowsAffected == 1 in src/Kanban.DataAccess/Repositories/InvitationRepository.cs — **GREEN commit for T029**
-- [ ] T033 [P] Implement AuthEventRepository with Dapper (Insert only — audit append log) in src/Kanban.DataAccess/Repositories/AuthEventRepository.cs
+- [X] T027 Define IUserRepository, IInvitationRepository, IAuthEventRepository interfaces per data-model.md Repository Interfaces section in src/Kanban.DataAccess/Interfaces/
+- [X] T028 [P] Write failing integration tests for UserRepository (FindByGoogleSub, FindByEmail, FindById, Insert, LinkGoogleSub, UpdateLastSignIn — all against real SQLite via SqliteTestFixture) in tests/integration/DataAccess/UserRepositoryTests.cs — **RED commit**
+- [X] T029 [P] Write failing integration tests for InvitationRepository (FindByTokenHash, FindActiveByEmail, Insert, TryConsumeAsync returns true first call and false on second call with same token) in tests/integration/DataAccess/InvitationRepositoryTests.cs — **RED commit**
+- [X] T030 Create SqliteTestFixture implementing IAsyncLifetime (runs DbUp migrations against Microsoft.Data.Sqlite in-memory DB, exposes IDbConnection) in tests/integration/Infrastructure/SqliteTestFixture.cs and [CollectionDefinition] in tests/integration/Infrastructure/SqliteCollection.cs
+- [X] T031 Implement UserRepository using Dapper with parameterized @paramName queries; all write methods accept IDbTransaction; no string interpolation in SQL in src/Kanban.DataAccess/Repositories/UserRepository.cs — **GREEN commit for T028**
+- [X] T032 [P] Implement InvitationRepository with Dapper; TryConsumeAsync executes the single UPDATE with consumed_at IS NULL guard and returns rowsAffected == 1 in src/Kanban.DataAccess/Repositories/InvitationRepository.cs — **GREEN commit for T029**
+- [X] T033 [P] Implement AuthEventRepository with Dapper (Insert only — audit append log) in src/Kanban.DataAccess/Repositories/AuthEventRepository.cs
 
 ### API Infrastructure
 
-- [ ] T034 Create sealed options classes with [Required] init-only setters and const SectionName: GoogleAuthOptions, SeedOptions, CorsOptions, ConnectionStringOptions in src/Kanban.Api/Options/
-- [ ] T035 Write Program.cs infrastructure: DbUp runner (DeployChanges.To.SQLiteDatabase, WithScriptsFromEmbeddedResources, WithVariables for seed), SQLite IDbConnection factory DI, all options registrations with .ValidateDataAnnotations().ValidateOnStart(), AddProblemDetails, health checks (/health/live process-only + /health/ready DB check), CORS named policy "KanbanWebApp" from CorsOptions, API versioning v1 group (RequireAuthorization registered later), OpenAPI + Scalar behind IsDevelopment guard, AddRateLimiter (permissive defaults: anonymous 10/min, authenticated 100/min, mutating 30/min), correlation ID middleware in src/Kanban.Api/Program.cs
-- [ ] T036 Implement DomainExceptionHandler (maps NotFoundException→404, ForbiddenException→403/404, ConflictException→409, BusinessRuleException→422 with code + traceId), InfrastructureExceptionHandler (DataAccessException→500, ExternalServiceException→502), FallbackExceptionHandler (logs Error; returns only title + traceId) in src/Kanban.Api/ErrorHandling/
-- [ ] T037 Confirm mandatory middleware order in Program.cs: UseForwardedHeaders → UseHttpsRedirection (prod only) → UseSecurityHeaders → UseRouting → UseCors("KanbanWebApp") → UseRateLimiter → UseAuthentication → UseAuthorization
+- [X] T034 Create sealed options classes with [Required] init-only setters and const SectionName: GoogleAuthOptions, SeedOptions, CorsOptions, ConnectionStringOptions in src/Kanban.Api/Options/
+- [X] T035 Write Program.cs infrastructure: DbUp runner (DeployChanges.To.SQLiteDatabase, WithScriptsFromEmbeddedResources, WithVariables for seed), SQLite IDbConnection factory DI, all options registrations with .ValidateDataAnnotations().ValidateOnStart(), AddProblemDetails, health checks (/health/live process-only + /health/ready DB check), CORS named policy "KanbanWebApp" from CorsOptions, API versioning v1 group (RequireAuthorization registered later), OpenAPI + Scalar behind IsDevelopment guard, AddRateLimiter (permissive defaults: anonymous 10/min, authenticated 100/min, mutating 30/min), correlation ID middleware in src/Kanban.Api/Program.cs
+- [X] T036 Implement DomainExceptionHandler (maps NotFoundException→404, ForbiddenException→403/404, ConflictException→409, BusinessRuleException→422 with code + traceId), InfrastructureExceptionHandler (DataAccessException→500, ExternalServiceException→502), FallbackExceptionHandler (logs Error; returns only title + traceId) in src/Kanban.Api/ErrorHandling/
+- [X] T037 Confirm mandatory middleware order in Program.cs: UseForwardedHeaders → UseHttpsRedirection (prod only) → UseSecurityHeaders → UseRouting → UseCors("KanbanWebApp") → UseRateLimiter → UseAuthentication → UseAuthorization
 
 ### Test Builders & Frontend Setup
 
