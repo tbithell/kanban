@@ -1,17 +1,16 @@
 <!--
 SYNC IMPACT REPORT
-Version: 1.7.0 → 1.7.1 (PATCH — MVP Implementation Order scoping clarification)
+Version: 1.7.1 → 1.7.2 (PATCH — Clarify Vitest as frontend test runner)
 Modified Principles: none
-Added Sections:
-  - MVP Implementation Order (delivery-scoping table: implement now / wire seam /
-      defer; tailored for local demo + tested, no deploy)
-Modified Sections: none
+Added Sections: none
+Modified Sections:
+  - Principle II TDD — Component test layer now says Vitest (not Jest); Vite projects
+    use Vitest as the idiomatic Jest-compatible runner. All RTL APIs are unchanged.
+  - Stack & Constraints table — Frontend component tests updated to Vitest
+  - CI/CD pipeline shape updated to reflect Vitest
 Removed Sections: none
-Stack Table: no changes
-Templates:
-  ✅ .specify/templates/plan-template.md — no changes required
-  ✅ .specify/templates/spec-template.md — no changes required
-  ✅ .specify/templates/tasks-template.md — no changes required
+Stack Table: Frontend component tests: React Testing Library + Vitest
+Templates: no changes required
 Deferred TODOs: none
 -->
 
@@ -41,7 +40,7 @@ Four test layers are required on every feature:
 |-------|------|----------|--------|
 | Unit | xUnit + FluentAssertions | `tests/unit/` | Business logic, domain, services in isolation |
 | Integration | xUnit + FluentAssertions | `tests/integration/` | REST endpoints + real DB (SQLite locally, Postgres via Testcontainers in CI) |
-| Component | React Testing Library + Jest | `src/Kanban.Web/tests/` | Fluent UI component rendering, user interactions |
+| Component | React Testing Library + Vitest | `src/Kanban.Web/tests/` | Fluent UI component rendering, user interactions |
 | E2E | Playwright | `tests/e2e/` | All user scenarios from the feature spec |
 
 **Integration test database engines:** Local developer runs use SQLite for fast
@@ -50,8 +49,8 @@ feedback. CI MUST run integration tests against both SQLite AND Postgres
 
 **Fluent UI component test tiers** (decision tree — use the lightest sufficient tier):
 
-1. Logic/utility functions testable in isolation → Jest unit test
-2. Requires component rendering without a browser → React Testing Library + Jest
+1. Logic/utility functions testable in isolation → Vitest unit test
+2. Requires component rendering without a browser → React Testing Library + Vitest
 3. Requires actual browser behavior → Playwright e2e
 
 Automated test coverage MUST be ≥ 90%. AI agents MUST follow TDD. A task is not complete
@@ -1601,7 +1600,7 @@ trim_trailing_whitespace = false
 | Backend code style | EditorConfig | `.editorconfig` at repo root |
 | Frontend linting | ESLint + Prettier | `lint-staged` pre-commit hook; a11y errors block commit |
 | Backend tests | xUnit + FluentAssertions | `tests/unit/` and `tests/integration/` |
-| Frontend component tests | React Testing Library + Jest | `src/Kanban.Web/tests/` |
+| Frontend component tests | React Testing Library + Vitest | `src/Kanban.Web/tests/` |
 | E2E tests | Playwright | `tests/e2e/` |
 | CI/CD | GitHub Actions | Required status checks; merge-commit (preserves TDD evidence) |
 | Integration DB (CI) | Testcontainers.PostgreSql | Real Postgres per test collection |
@@ -1671,7 +1670,7 @@ standard tooling for the spec-kit workflow. No self-hosted runners for MVP.
 3. test — all four layers in parallel where possible:
    - tests/unit/         (xUnit + FluentAssertions)
    - tests/integration/  (xUnit + FluentAssertions + Testcontainers Postgres)
-   - src/Kanban.Web/     (RTL + Jest)
+   - src/Kanban.Web/     (RTL + Vitest)
    - tests/e2e/          (Playwright)
 4. security:
    - Snyk SCA, SAST, License
@@ -2093,4 +2092,4 @@ Amendments require: (1) documented rationale, (2) version bump per the policy be
 All implementation tasks and AI agent outputs MUST be verified for compliance with this
 constitution before a task is marked complete.
 
-**Version**: 1.7.1 | **Ratified**: 2026-05-23 | **Last Amended**: 2026-05-25
+**Version**: 1.7.2 | **Ratified**: 2026-05-23 | **Last Amended**: 2026-05-26

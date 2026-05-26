@@ -84,9 +84,9 @@ testing of each story.
 
 ### Test Builders & Frontend Setup
 
-- [ ] T038 [P] Create UserBuilder (AUser() factory, WithEmail/WithDisplayName/WithSystemRole/WithGoogleSub/AsAdmin setters, default produces valid User) in tests/unit/Builders/UserBuilder.cs
-- [ ] T039 [P] Create InvitationBuilder (AnInvitation() factory, ForEmail/WithExpiry/AsExpired/AsConsumed setters, default produces valid unexpired unconsumed Invitation with generated token hash) in tests/unit/Builders/InvitationBuilder.cs
-- [ ] T040 Set up TanStack QueryClient in src/Kanban.Web/src/main.tsx (staleTime: 30_000, retry: never 4xx, 2x for 5xx/network), wrap <App /> with QueryClientProvider, render ReactQueryDevtools in development; create createQueryClientWrapper() test utility in src/Kanban.Web/src/tests/utils/queryClientWrapper.tsx
+- [X] T038 [P] Create UserBuilder (AUser() factory, WithEmail/WithDisplayName/WithSystemRole/WithGoogleSub/AsAdmin setters, default produces valid User) in tests/unit/Builders/UserBuilder.cs
+- [X] T039 [P] Create InvitationBuilder (AnInvitation() factory, ForEmail/WithExpiry/AsExpired/AsConsumed setters, default produces valid unexpired unconsumed Invitation with generated token hash) in tests/unit/Builders/InvitationBuilder.cs
+- [X] T040 Set up TanStack QueryClient in src/Kanban.Web/src/main.tsx (staleTime: 30_000, retry: never 4xx, 2x for 5xx/network), wrap <App /> with QueryClientProvider, render ReactQueryDevtools in development; create createQueryClientWrapper() test utility in src/Kanban.Web/src/tests/utils/queryClientWrapper.tsx
 
 **Checkpoint**: Foundation ready. `dotnet test tests/unit/` and `dotnet test tests/integration/` pass. App starts with `dotnet run` — DbUp runs migrations, admin record seeded, health endpoints respond.
 
