@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# --- gitleaks secret scan ---
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --config .gitleaks.toml
+  if [ $? -ne 0 ]; then
+    echo "❌ gitleaks detected secrets in staged files. Commit blocked."
+    exit 1
+  fi
+else
+  echo "⚠️  gitleaks not installed. Install with: brew install gitleaks"
+  echo "    This is a HARD GATE — install gitleaks before committing."
+  exit 1
+fi
+
+# --- frontend lint-staged ---
+if [ -d "src/Kanban.Web" ]; then
+  cd src/Kanban.Web && npx lint-staged
+fi

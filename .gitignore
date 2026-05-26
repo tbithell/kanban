@@ -28,3 +28,16 @@ Thumbs.db
 # Test coverage
 coverage/
 *.trx
+
+# Node / frontend
+node_modules/
+dist/
+*.log
+.env*
+
+# Playwright
+playwright-report/
+test-results/
+
+# User secrets location (never commit)
+**/secrets.json

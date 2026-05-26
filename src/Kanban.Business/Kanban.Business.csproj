@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Kanban.Domain\Kanban.Domain.csproj" />
+    <ProjectReference Include="..\Kanban.Contracts\Kanban.Contracts.csproj" />
+    <ProjectReference Include="..\Kanban.DataAccess\Kanban.DataAccess.csproj" />
+    <ProjectReference Include="..\Kanban.AntiCorruption\Kanban.AntiCorruption.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Polly" Version="8.6.6" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

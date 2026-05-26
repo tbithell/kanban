@@ -22,17 +22,17 @@ testing of each story.
 
 **Purpose**: Create solution, project scaffold, and tooling configuration. No business logic.
 
-- [ ] T001 Create .NET solution `Kanban.sln` and all 8 projects (Kanban.Api, Kanban.Business, Kanban.Domain, Kanban.Contracts, Kanban.AntiCorruption, Kanban.Data, Kanban.DataAccess, and confirm src/Kanban.Web/ Vite scaffold) with correct project-to-project references per the dependency matrix in plan.md
-- [ ] T002 Add all NuGet packages to backend projects per plan.md Technical Context: Dapper, DbUp-SQLite, FluentValidation.AspNetCore, Polly, Microsoft.Extensions.Http.Resilience, NetEscapades.AspNetCore.SecurityHeaders, Asp.Versioning.Http, Microsoft.AspNetCore.OpenApi, Scalar.AspNetCore, Microsoft.Extensions.Diagnostics.HealthChecks, Microsoft.AspNetCore.Authentication.Google in src/Kanban.*/
-- [ ] T003 [P] Create appsettings.json (empty-value shape: Authentication, ConnectionStrings, Cors, Seed sections) and appsettings.Development.json (Logging levels per constitution) in src/Kanban.Api/
-- [ ] T004 [P] Commit .editorconfig to repo root with constitution spec (indent_style=space, C#=4, web=2, LF, UTF-8, trim_trailing_whitespace=true, insert_final_newline=true)
-- [ ] T005 Install frontend npm packages in src/Kanban.Web/: @fluentui/react-components, @tanstack/react-query, @tanstack/react-query-devtools, react-error-boundary, react-router-dom; verify Vite TypeScript template is in place
-- [ ] T006 [P] Create ESLint config (src/Kanban.Web/.eslintrc.cjs) with @typescript-eslint, eslint-plugin-react, eslint-plugin-react-hooks, eslint-plugin-jsx-a11y (a11y as errors), eslint-config-prettier last; create src/Kanban.Web/.prettierrc
-- [ ] T007 Configure lint-staged pre-commit hook in src/Kanban.Web/package.json to run ESLint + Prettier on staged frontend files
-- [ ] T008 Install gitleaks pre-commit hook via scripts/install-hooks.sh at repo root; verify it blocks a commit containing a test secret (GOCSPX- prefix)
-- [ ] T009 Create xUnit test projects tests/unit/ (references Kanban.Domain, Kanban.Business) and tests/integration/ (references Kanban.Api, Kanban.DataAccess) with xunit, FluentAssertions, Microsoft.AspNetCore.Mvc.Testing, Microsoft.Data.Sqlite NuGet packages
-- [ ] T010 [P] Create Playwright e2e project tests/e2e/ with playwright.config.ts pointing to http://localhost:5173; install @playwright/test browsers
-- [ ] T011 [P] Create RTL/Jest setup in src/Kanban.Web/: install @testing-library/react, @testing-library/jest-dom, @testing-library/user-event, msw, jest, jest-environment-jsdom, ts-jest; create jest.config.ts and src/Kanban.Web/src/setupTests.ts
+- [x] T001 Solution `Kanban.slnx` and one project already exist (`Kanban/Kanban.csproj` — default ASP.NET template). Restructure: move `Kanban/` → `src/Kanban.Api/` and rename csproj to `Kanban.Api.csproj`; update `Kanban.slnx` to reference new path. Then create the remaining 6 backend projects (Kanban.Business, Kanban.Domain, Kanban.Contracts, Kanban.AntiCorruption, Kanban.Data, Kanban.DataAccess) under `src/` and add all to `Kanban.slnx`; scaffold `src/Kanban.Web/` as a Vite TypeScript React app; add all project-to-project references per the dependency matrix in plan.md
+- [x] T002 Add all NuGet packages to backend projects per plan.md Technical Context: Dapper, DbUp-SQLite, FluentValidation.AspNetCore, Polly, Microsoft.Extensions.Http.Resilience, NetEscapades.AspNetCore.SecurityHeaders, Asp.Versioning.Http, Microsoft.AspNetCore.OpenApi, Scalar.AspNetCore, Microsoft.Extensions.Diagnostics.HealthChecks, Microsoft.AspNetCore.Authentication.Google in src/Kanban.*/
+- [x] T003 [P] Create appsettings.json (empty-value shape: Authentication, ConnectionStrings, Cors, Seed sections) and appsettings.Development.json (Logging levels per constitution) in src/Kanban.Api/
+- [x] T004 [P] Commit .editorconfig to repo root with constitution spec (indent_style=space, C#=4, web=2, LF, UTF-8, trim_trailing_whitespace=true, insert_final_newline=true)
+- [x] T005 Install frontend npm packages in src/Kanban.Web/: @fluentui/react-components, @tanstack/react-query, @tanstack/react-query-devtools, react-error-boundary, react-router-dom; verify Vite TypeScript template is in place
+- [x] T006 [P] Create ESLint config (src/Kanban.Web/.eslintrc.cjs) with @typescript-eslint, eslint-plugin-react, eslint-plugin-react-hooks, eslint-plugin-jsx-a11y (a11y as errors), eslint-config-prettier last; create src/Kanban.Web/.prettierrc
+- [x] T007 Configure lint-staged pre-commit hook in src/Kanban.Web/package.json to run ESLint + Prettier on staged frontend files
+- [x] T008 Install gitleaks pre-commit hook via scripts/install-hooks.sh at repo root; verify it blocks a commit containing a test secret (GOCSPX- prefix)
+- [x] T009 Create xUnit test projects tests/unit/ (references Kanban.Domain, Kanban.Business) and tests/integration/ (references Kanban.Api, Kanban.DataAccess) with xunit, FluentAssertions, Microsoft.AspNetCore.Mvc.Testing, Microsoft.Data.Sqlite NuGet packages
+- [x] T010 [P] Create Playwright e2e project tests/e2e/ with playwright.config.ts pointing to http://localhost:5173; install @playwright/test browsers
+- [x] T011 [P] Create RTL/Jest setup in src/Kanban.Web/: install @testing-library/react, @testing-library/jest-dom, @testing-library/user-event, msw, jest, jest-environment-jsdom, ts-jest; create jest.config.ts and src/Kanban.Web/src/setupTests.ts
 
 **Checkpoint**: Solution builds. All project references resolve. `dotnet build` and `npm run build` succeed with no errors.
 
