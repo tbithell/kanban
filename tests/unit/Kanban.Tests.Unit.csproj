@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Kanban.Domain\Kanban.Domain.csproj" />
     <ProjectReference Include="..\..\src\Kanban.Business\Kanban.Business.csproj" />
+    <ProjectReference Include="..\..\src\Kanban.DataAccess\Kanban.DataAccess.csproj" />
   </ItemGroup>
 
 </Project>

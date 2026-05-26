@@ -242,3 +242,5 @@ var v1Group = v1.MapGroup("/api/v1").HasApiVersion(1, 0);
 // T060: InviteEndpoints.Map(v1Group);
 
 app.Run();
+
+public partial class Program { }
