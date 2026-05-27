@@ -2,6 +2,7 @@ using System.Data;
 using System.Security.Claims;
 using Kanban.Business.Interfaces;
 using Kanban.Contracts;
+using Kanban.DataAccess.Extensions;
 using Kanban.DataAccess.Interfaces;
 using Kanban.Domain;
 using Kanban.Domain.Entities;
@@ -39,6 +40,10 @@ public sealed class AuthService : IAuthService
         IDbConnection dbConnection,
         ILogger<AuthService> logger)
     {
+        Verify.That(userRepository).IsNotNull();
+        Verify.That(authEventRepository).IsNotNull();
+        Verify.That(dbConnection).IsNotNull();
+        Verify.That(logger).IsNotNull();
         _userRepository = userRepository;
         _authEventRepository = authEventRepository;
         _dbConnection = dbConnection;
@@ -76,7 +81,7 @@ public sealed class AuthService : IAuthService
 
         await RetryPolicy.ExecuteAsync(async ct =>
         {
-            using var tx = _dbConnection.BeginTransaction();
+            using var tx = _dbConnection.BeginDeferredTransaction();
             try
             {
                 var user = await _userRepository.FindByGoogleSubAsync(googleSub, tx);

@@ -68,6 +68,7 @@ public sealed class UserRepository : IUserRepository
     public async Task InsertAsync(User user, IDbTransaction tx)
     {
         Verify.That(user).IsNotNull();
+        Verify.That(tx).IsNotNull();
 
         const string sql = """
             INSERT INTO users (id, email, display_name, system_role, google_sub, registered_at, last_sign_in_at)
@@ -90,6 +91,7 @@ public sealed class UserRepository : IUserRepository
     {
         Verify.That(userId).IsNotDefault();
         Verify.That(googleSub).IsNotNull().IsNotEmpty();
+        Verify.That(tx).IsNotNull();
 
         const string sql = """
             UPDATE users SET google_sub = @googleSub WHERE id = @userId
@@ -104,6 +106,7 @@ public sealed class UserRepository : IUserRepository
     public async Task UpdateLastSignInAsync(Guid userId, DateTimeOffset signedInAt, IDbTransaction tx)
     {
         Verify.That(userId).IsNotDefault();
+        Verify.That(tx).IsNotNull();
 
         const string sql = """
             UPDATE users SET last_sign_in_at = @signedInAt WHERE id = @userId

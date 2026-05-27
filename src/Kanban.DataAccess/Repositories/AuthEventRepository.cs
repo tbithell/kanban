@@ -19,6 +19,7 @@ public sealed class AuthEventRepository : IAuthEventRepository
     public async Task RecordAsync(AuthEvent authEvent, IDbTransaction tx)
     {
         Verify.That(authEvent).IsNotNull();
+        Verify.That(tx).IsNotNull();
 
         const string sql = """
             INSERT INTO auth_events (id, occurred_at, event_type, user_id, outcome)

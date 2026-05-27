@@ -467,3 +467,45 @@ Pushed branch `001-auth-onboarding` and created PR #2:
 PR covers T001–T055. Description includes: spec links, what's in the PR (backend + frontend table), test coverage table, NFR confirmation checklist, key technical decision (WebApplicationFactory connection string root cause from Session 9), migration notes.
 
 **User:** update the SESSION_LOG.md
+
+**Claude:** Appended the full Session 10 exchange to SESSION_LOG.md including the PR creation. Committed `ed0f9e2`.
+
+**User:** first let's review the pull request and make sure it adheres to the constitution
+
+**Claude:** Ran a full constitution compliance review of PR #2 using an Explore subagent to sweep the changed files, then read each flagged file directly. Findings:
+
+**BLOCK:**
+- `src/Kanban.Business/Services/AuthService.cs:79` — `_dbConnection.BeginTransaction()` must be `_dbConnection.BeginTransaction(deferred: true)` per constitution § Transaction Pattern (deferred required for any operation that reads before writing)
+
+**WARN:**
+- `src/Kanban.Business/Services/AuthService.cs` constructor — 4 injected dependencies (`userRepository`, `authEventRepository`, `dbConnection`, `logger`) not verified with `Verify.That`; inconsistent with `UserRepository` constructor which does verify its dependency
+- `src/Kanban.DataAccess/Repositories/UserRepository.cs` — `InsertAsync`, `LinkGoogleSubAsync`, `UpdateLastSignInAsync` each accept a non-nullable `IDbTransaction tx` but do not call `Verify.That(tx).IsNotNull()`
+- `src/Kanban.DataAccess/Repositories/InvitationRepository.cs` — `InsertAsync`, `TryConsumeAsync` same issue
+- `src/Kanban.DataAccess/Repositories/AuthEventRepository.cs` — `RecordAsync` same issue
+- `src/Kanban.Api/Endpoints/AuthEndpoints.cs` — `/signin` endpoint has `WithName` + `WithSummary` but no `.Produces(302)` (OpenAPI docs incomplete)
+
+**NOTE (non-blocking, can defer):**
+- `tests/integration/Infrastructure/KanbanWebAppFactory.cs:19-22, 96-97` — in-class comments
+- `src/Kanban.Web/src/App.tsx:11` — `if (isLoading) return null` renders blank; Fluent UI Spinner would be better
+- `src/Kanban.Web/src/pages/NotRegisteredPage.tsx:28` — signout swallows errors silently
+
+Asked: want me to fix BLOCK + WARN now?
+
+---
+
+## Session 11
+
+**User:** OK, let's fix the block and warn items
+
+**Claude:** Read all 5 affected files, then applied all fixes in one pass:
+
+1. **BLOCK fixed** — `AuthService.cs:84`: `BeginTransaction(deferred: true)`
+2. **WARN fixed** — `AuthService` constructor: added `Verify.That` on all 4 injected params
+3. **WARN fixed** — `UserRepository`: `Verify.That(tx).IsNotNull()` on `InsertAsync`, `LinkGoogleSubAsync`, `UpdateLastSignInAsync`
+4. **WARN fixed** — `InvitationRepository`: `Verify.That(tx).IsNotNull()` on `InsertAsync`, `TryConsumeAsync`
+5. **WARN fixed** — `AuthEventRepository`: `Verify.That(tx).IsNotNull()` on `RecordAsync`
+6. **WARN fixed** — `AuthEndpoints.cs`: `.Produces(302)` added to `/signin` endpoint
+
+All 93 tests pass: 56 unit ✅ + 23 integration ✅ + 14 RTL ✅
+
+**User:** update the session log first then commit and push

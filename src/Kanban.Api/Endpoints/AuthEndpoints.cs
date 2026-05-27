@@ -24,6 +24,7 @@ public static class AuthEndpoints
             })
             .WithName("SignIn")
             .WithSummary("Initiate Google OAuth sign-in")
+            .Produces(302)
             .AllowAnonymous()
             .RequireRateLimiting("anonymous");
 

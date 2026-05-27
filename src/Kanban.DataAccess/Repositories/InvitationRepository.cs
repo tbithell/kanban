@@ -53,6 +53,7 @@ public sealed class InvitationRepository : IInvitationRepository
     public async Task InsertAsync(Invitation invitation, IDbTransaction tx)
     {
         Verify.That(invitation).IsNotNull();
+        Verify.That(tx).IsNotNull();
 
         const string sql = """
             INSERT INTO invitations (id, email, issued_by_user_id, token_hash, issued_at, expires_at,
@@ -79,6 +80,7 @@ public sealed class InvitationRepository : IInvitationRepository
     {
         Verify.That(tokenHash).IsNotNull().IsNotEmpty();
         Verify.That(userId).IsNotDefault();
+        Verify.That(tx).IsNotNull();
 
         const string sql = """
             UPDATE invitations
