@@ -1,6 +1,9 @@
+using System.Collections.Concurrent;
+using System.Data;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using Dapper;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -19,7 +22,8 @@ public sealed class KanbanWebAppFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        // Development disables HTTPS redirect and is needed for the app to start correctly in tests.
+        builder.UseEnvironment("Development");
 
         builder.ConfigureAppConfiguration((_, config) =>
         {
@@ -35,18 +39,35 @@ public sealed class KanbanWebAppFactory : WebApplicationFactory<Program>
 
         builder.ConfigureServices(services =>
         {
-            services.AddAuthentication(TestAuthenticationHandler.SchemeName)
-                .AddScheme<TestAuthHandlerOptions, TestAuthenticationHandler>(
-                    TestAuthenticationHandler.SchemeName, null);
+            // Replace all authentication with the Test scheme so requests can be
+            // authenticated by setting a header without going through Google OAuth.
+            services.AddAuthentication(options =>
+            {
+                options.DefaultScheme = TestAuthenticationHandler.SchemeName;
+                options.DefaultAuthenticateScheme = TestAuthenticationHandler.SchemeName;
+                options.DefaultChallengeScheme = TestAuthenticationHandler.SchemeName;
+                options.DefaultForbidScheme = TestAuthenticationHandler.SchemeName;
+            })
+            .AddScheme<TestAuthHandlerOptions, TestAuthenticationHandler>(
+                TestAuthenticationHandler.SchemeName, null);
         });
+    }
+
+    public async Task<Guid> GetSeededAdminIdAsync()
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<IDbConnection>();
+        return await db.QuerySingleAsync<Guid>(
+            "SELECT id FROM users WHERE email = @email",
+            new { email = AdminEmail });
     }
 
     public HttpClient CreateAuthenticatedClient(ClaimsPrincipal user)
     {
         var client = CreateClient();
+        var token = TestAuthenticationHandler.RegisterUser(user);
         client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue(TestAuthenticationHandler.SchemeName, user.Identity?.Name);
-        TestAuthenticationHandler.SetUser(user);
+            new AuthenticationHeaderValue(TestAuthenticationHandler.SchemeName, token);
         return client;
     }
 
@@ -58,8 +79,6 @@ public sealed class KanbanWebAppFactory : WebApplicationFactory<Program>
     }
 }
 
-public sealed class TestHandlerOptions : AuthenticationSchemeOptions { }
-
 public sealed class TestAuthHandlerOptions : AuthenticationSchemeOptions { }
 
 public sealed class TestAuthenticationHandler(
@@ -70,18 +89,32 @@ public sealed class TestAuthenticationHandler(
 {
     public const string SchemeName = "Test";
 
-    [ThreadStatic]
-    private static ClaimsPrincipal? _currentUser;
+    // ConcurrentDictionary is used instead of [ThreadStatic] because async request
+    // processing can switch threads, making thread-local storage unreliable in tests.
+    private static readonly ConcurrentDictionary<string, ClaimsPrincipal> _users = new();
 
-    public static void SetUser(ClaimsPrincipal user) => _currentUser = user;
-    public static void ClearUser() => _currentUser = null;
+    public static string RegisterUser(ClaimsPrincipal user)
+    {
+        var token = Guid.NewGuid().ToString("N");
+        _users[token] = user;
+        return token;
+    }
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        if (_currentUser == null)
+        if (!Request.Headers.TryGetValue("Authorization", out var authHeader))
             return Task.FromResult(AuthenticateResult.NoResult());
 
-        var ticket = new AuthenticationTicket(_currentUser, SchemeName);
+        var headerValue = authHeader.ToString();
+        var prefix = $"{SchemeName} ";
+        if (!headerValue.StartsWith(prefix, StringComparison.Ordinal))
+            return Task.FromResult(AuthenticateResult.NoResult());
+
+        var token = headerValue[prefix.Length..];
+        if (!_users.TryGetValue(token, out var user))
+            return Task.FromResult(AuthenticateResult.NoResult());
+
+        var ticket = new AuthenticationTicket(user, SchemeName);
         return Task.FromResult(AuthenticateResult.Success(ticket));
     }
 }

@@ -4,10 +4,21 @@ using System.Reflection;
 using Asp.Versioning;
 using DbUp;
 using DbUp.Sqlite;
+using Kanban.AntiCorruption.Adapters;
+using Kanban.Api.Auth;
 using Kanban.Api.ErrorHandling;
 using Kanban.Api.Health;
 using Kanban.Api.Options;
+using Kanban.Business.Interfaces;
+using Kanban.Business.Services;
+using Kanban.Api.Endpoints;
 using Kanban.DataAccess;
+using Kanban.DataAccess.Interfaces;
+using Kanban.DataAccess.Repositories;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
@@ -57,7 +68,19 @@ builder.Services.AddScoped<IDbConnection>(_ =>
 
 // ── Exception Handling ────────────────────────────────────────────────────────
 
-builder.Services.AddProblemDetails();
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = ctx =>
+    {
+        ctx.ProblemDetails.Extensions["traceId"] = Activity.Current?.Id;
+        if (ctx.HttpContext.Response.StatusCode == StatusCodes.Status403Forbidden
+            && !ctx.ProblemDetails.Extensions.ContainsKey("code"))
+        {
+            ctx.ProblemDetails.Title = "You are not registered to use this application.";
+            ctx.ProblemDetails.Extensions["code"] = "user.not_registered";
+        }
+    };
+});
 builder.Services.AddExceptionHandler<DomainExceptionHandler>();
 builder.Services.AddExceptionHandler<InfrastructureExceptionHandler>();
 builder.Services.AddExceptionHandler<FallbackExceptionHandler>();
@@ -74,6 +97,74 @@ builder.Services.AddCors(options =>
             .WithMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
             .AllowAnyHeader()
             .WithExposedHeaders("X-Correlation-Id", "api-supported-versions")));
+
+// ── Authentication & Authorization ───────────────────────────────────────────
+
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<GoogleIdentityAdapter>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IAuthEventRepository, AuthEventRepository>();
+builder.Services.AddScoped<IInvitationRepository, InvitationRepository>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IAuthorizationHandler, RegisteredUserHandler>();
+
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+    })
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/api/v1/auth/signin";
+        options.Events.OnRedirectToLogin = ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        };
+        options.Events.OnRedirectToAccessDenied = ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        };
+    })
+    .AddGoogle(options =>
+    {
+        var googleOpts = builder.Configuration
+            .GetSection(GoogleAuthOptions.SectionName)
+            .Get<GoogleAuthOptions>()!;
+        options.ClientId = googleOpts.ClientId;
+        options.ClientSecret = googleOpts.ClientSecret;
+        options.Events.OnTicketReceived = async ctx =>
+        {
+            var adapter = ctx.HttpContext.RequestServices
+                .GetRequiredService<GoogleIdentityAdapter>();
+            var authService = ctx.HttpContext.RequestServices
+                .GetRequiredService<IAuthService>();
+
+            if (ctx.Principal is not null)
+            {
+                var identity = adapter.Extract(ctx.Principal);
+                var claimsIdentity = ctx.Principal.Identity as System.Security.Claims.ClaimsIdentity;
+                if (claimsIdentity is not null)
+                {
+                    await authService.HandleSignInAsync(
+                        identity.Sub,
+                        identity.Email,
+                        claimsIdentity,
+                        ctx.HttpContext.RequestAborted);
+                }
+            }
+        };
+    });
+
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("RegisteredUser", policy => policy
+        .RequireAuthenticatedUser()
+        .AddRequirements(new RegisteredUserRequirement()))
+    .AddPolicy("Admin", policy => policy
+        .RequireAuthenticatedUser()
+        .RequireClaim("system_role", "admin"));
 
 // ── API Versioning ────────────────────────────────────────────────────────────
 
@@ -211,7 +302,8 @@ app.UseStatusCodePages();
 app.UseRouting();
 app.UseCors("KanbanWebApp");
 app.UseRateLimiter();
-// T050: app.UseAuthentication(); app.UseAuthorization();
+app.UseAuthentication();
+app.UseAuthorization();
 
 // ── Health endpoints — public, excluded from auth group ───────────────────────
 
@@ -236,9 +328,10 @@ if (app.Environment.IsDevelopment())
 // ── Versioned API (v1) — endpoints registered in Endpoints/ ───────────────────
 
 var v1 = app.NewVersionedApi();
-var v1Group = v1.MapGroup("/api/v1").HasApiVersion(1, 0);
-// T050 adds: .RequireAuthorization("RegisteredUser")
-// T051: AuthEndpoints.Map(v1Group);
+var v1Group = v1.MapGroup("/api/v1")
+    .HasApiVersion(1, 0)
+    .RequireAuthorization("RegisteredUser");
+AuthEndpoints.Map(v1Group);
 // T060: InviteEndpoints.Map(v1Group);
 
 app.Run();

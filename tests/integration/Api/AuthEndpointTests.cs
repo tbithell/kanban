@@ -18,7 +18,7 @@ public sealed class AuthEndpointTests : IClassFixture<KanbanWebAppFactory>
     [Fact]
     public async Task GetMe_WhenRegisteredAdminAuthenticated_Returns200WithCurrentUser()
     {
-        var userId = Guid.NewGuid();
+        var userId = await _factory.GetSeededAdminIdAsync();
         var client = _factory.CreateAuthenticatedClient(TestPrincipals.RegisteredAdmin(userId));
 
         var response = await client.GetAsync("/api/v1/auth/me");
@@ -33,7 +33,6 @@ public sealed class AuthEndpointTests : IClassFixture<KanbanWebAppFactory>
     public async Task GetMe_WhenUnauthenticated_Returns401()
     {
         var client = _factory.CreateClient();
-        TestAuthenticationHandler.ClearUser();
 
         var response = await client.GetAsync("/api/v1/auth/me");
 
@@ -53,11 +52,11 @@ public sealed class AuthEndpointTests : IClassFixture<KanbanWebAppFactory>
     }
 
     [Fact]
-    public async Task Signout_WhenAuthenticated_Returns204AndClearsCookie()
+    public async Task Signout_WhenAuthenticated_Returns204()
     {
-        var userId = Guid.NewGuid();
+        var userId = await _factory.GetSeededAdminIdAsync();
         var client = _factory.CreateAuthenticatedClient(
-            TestPrincipals.RegisteredStandardUser(userId, "user@test.local"));
+            TestPrincipals.RegisteredAdmin(userId));
 
         var response = await client.PostAsync("/api/v1/auth/signout", null);
 

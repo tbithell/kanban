@@ -1,8 +1,10 @@
 using System.Data;
 using System.Security.Claims;
 using Kanban.Business.Interfaces;
+using Kanban.Contracts;
 using Kanban.DataAccess.Interfaces;
 using Kanban.Domain;
+using Kanban.Domain.Entities;
 using Kanban.Domain.Enums;
 using Kanban.Domain.Events;
 using Microsoft.Extensions.Logging;
@@ -41,6 +43,25 @@ public sealed class AuthService : IAuthService
         _authEventRepository = authEventRepository;
         _dbConnection = dbConnection;
         _logger = logger;
+    }
+
+    private static CurrentUserDto ToDto(User user) => new()
+    {
+        Id = user.Id,
+        Email = user.Email,
+        DisplayName = user.DisplayName,
+        SystemRole = user.SystemRole == SystemRole.Admin ? "admin" : "standard",
+        RegisteredAt = user.RegisteredAt,
+        LastSignInAt = user.LastSignInAt,
+    };
+
+    public async Task<CurrentUserDto?> GetCurrentUserAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        Verify.That(userId).IsNotDefault();
+        var user = await _userRepository.FindByIdAsync(userId);
+        return user is null ? null : ToDto(user);
     }
 
     public async Task HandleSignInAsync(

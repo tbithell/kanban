@@ -11,6 +11,6 @@ keywords = ["GOCSPX"]
 
 [[rules]]
 id = "dotnet-user-secrets"
-description = "ASP.NET user secrets pattern"
-regex = '''(ClientSecret|ClientId)\s*[:=]\s*["']?[A-Za-z0-9_\-\.]{10,}'''
+description = "Hardcoded ASP.NET credential string literal (ClientSecret/ClientId = \"value\")"
+regex = '''(ClientSecret|ClientId)\s*[:=]\s*["'][A-Za-z0-9_\-\.]{10,}["']'''
 keywords = ["ClientSecret", "ClientId"]

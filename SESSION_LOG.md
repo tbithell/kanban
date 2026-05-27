@@ -291,3 +291,36 @@ Ran `/speckit-git-commit` — committed tasks.md as `36c2ee5`.
 **User:** Update the session log.
 
 **Claude:** Appended this Session 5 transcript.
+
+---
+
+## Session 6
+
+**User:** [Continuing from previous context] `ok, let's keep going` — resumed `/speckit-implement` from T041 (Phase 3 US1).
+
+**Claude:** Picked up from T041 and implemented T048–T051 (GREEN) and fixed a build error along the way:
+
+- **T048 [GREEN]**: `ICurrentUserService` interface + `CurrentUserService` implementation — reads `user_id` and `system_role` claims from `IHttpContextAccessor`; `IsRegistered` checks for a valid GUID `user_id` claim.
+- **T049 [GREEN]**: `RegisteredUserRequirement` marker + `RegisteredUserHandler` — custom `IAuthorizationHandler` that calls `context.Fail("user.not_registered")` for unregistered users, producing the 403 with Problem Details `code` extension.
+- **T050 [GREEN]**: `Program.cs` OIDC wiring — `AddAuthentication().AddCookie().AddGoogle()` with `OnTicketReceived` callback (extracts Google identity via `GoogleIdentityAdapter`, calls `AuthService.HandleSignInAsync`), `RegisteredUser` + `Admin` authorization policies, `AddProblemDetails` with custom 403 body, `UseAuthentication()` + `UseAuthorization()` middleware, versioned `/api/v1` group with `RequireAuthorization("RegisteredUser")`.
+- **T051 [GREEN]**: `AuthEndpoints.Map()` — `GET /auth/signin` (challenge to Google, rate-limited), `GET /auth/me` (returns `CurrentUserDto`, requires RegisteredUser), `POST /auth/signout` (signs out cookie, 204). Fixed compiler error: method groups resolved to `RequestDelegate` overload (returning `IEndpointConventionBuilder`) instead of `Delegate` (returning `RouteHandlerBuilder`); fixed by using inline lambdas at all call sites.
+
+**Unresolved bug**: Integration tests for `AuthEndpointTests` returning wrong status codes. Root cause analysis:
+
+1. **`[ThreadStatic]` thread-safety failure** — `TestAuthenticationHandler._currentUser` was set on the test thread but ASP.NET processes requests on thread-pool threads; async continuations silently lost the thread-local state. All authenticated tests appeared unauthenticated.
+2. **`DefaultChallengeScheme` still pointing to Google** — factory only overrode `DefaultScheme` to "Test", leaving `DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme`. Unauthenticated challenges triggered Google OAuth redirects; test client followed them to unroutable URLs (404/500).
+
+**Fixes applied**:
+- Rewrote `TestAuthenticationHandler` to use a `ConcurrentDictionary<token, ClaimsPrincipal>` — token is stored in the `Authorization` header, read on the server thread (thread-safe).
+- Updated `KanbanWebAppFactory.ConfigureServices` to override `DefaultScheme`, `DefaultAuthenticateScheme`, `DefaultChallengeScheme`, and `DefaultForbidScheme` all to "Test".
+- Changed factory environment from `"Testing"` to `"Development"` to disable `UseHttpsRedirection` (which causes redirect loops in the in-memory test server).
+- Updated `AuthEndpointTests` to call `_factory.GetSeededAdminIdAsync()` (queries the DB for the actual seeded admin user ID) instead of using a random `Guid.NewGuid()` that doesn't exist in the DB.
+- Removed `TestAuthenticationHandler.ClearUser()` call (method no longer exists).
+
+**Remaining work before next session**: Integration tests still fail with `SQLite Error 1: 'no such table: users'` — the `GetSeededAdminIdAsync()` call initializes the factory before DbUp migrations have run. Need to ensure the factory's DB is fully initialized before the helper method is called.
+
+**Tasks completed this session**: T048–T051 (GREEN implementation). Test infrastructure fixes applied but not fully green yet.
+
+**User:** Let's stop for now, update the session logs and commit the changes. We'll pick up later.
+
+**Claude:** Updated session log, staged all changes, and committed.
