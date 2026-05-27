@@ -450,3 +450,7 @@ Then implemented:
 All 14 RTL tests green (8 new + 6 existing). Committed `30e1b66`. T054 and T055 marked [X] in tasks.md.
 
 Next: T056 (failing unit tests for InvitationService) — first task of Phase 4 (US2).
+
+**User:** make sure to include the summary in the SESSION_LOG.md after that let's go ahead and create a pull request for User story 1
+
+**Claude:** Noted — appending this message to the log, then creating the PR.
