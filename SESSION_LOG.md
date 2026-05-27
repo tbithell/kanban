@@ -454,3 +454,16 @@ Next: T056 (failing unit tests for InvitationService) — first task of Phase 4 
 **User:** make sure to include the summary in the SESSION_LOG.md after that let's go ahead and create a pull request for User story 1
 
 **Claude:** Noted — appending this message to the log, then creating the PR.
+
+**Claude:** Ran all four test layers to confirm green state before creating the PR:
+- Unit: 56/56 ✅
+- Integration: 23/23 ✅
+- RTL component: 14/14 ✅
+- Playwright e2e: scaffolded (T045 RED commit — requires live Google OAuth, will go green in US2/US3)
+
+Pushed branch `001-auth-onboarding` and created PR #2:
+**[feat(001): US1 — Seeded Admin Signs In (Authentication & User Onboarding)](https://github.com/tbithell/kanban/pull/2)**
+
+PR covers T001–T055. Description includes: spec links, what's in the PR (backend + frontend table), test coverage table, NFR confirmation checklist, key technical decision (WebApplicationFactory connection string root cause from Session 9), migration notes.
+
+**User:** update the SESSION_LOG.md
