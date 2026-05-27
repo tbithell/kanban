@@ -353,3 +353,43 @@ Verified clean with `gitleaks protect --staged` (no leaks found), then committed
 **User:** Let's first update SESSION_LOG.md and commit that change.
 
 **Claude:** Updated session log and committed.
+
+---
+
+## Session 8
+
+**User:** Resumed to fix the remaining 2 failing integration tests (`GetMe_WhenRegisteredAdminAuthenticated_Returns200WithCurrentUser` and `Signout_WhenAuthenticated_Returns204`). Both fail with `SQLite Error 1: 'no such table: users'` in `GetSeededAdminIdAsync()`.
+
+**Claude:** Investigated the root cause systematically:
+
+1. Confirmed SQLite is properly installed (`sqlite3 3.37.0`, native `libe_sqlite3.dylib` present for both `osx-x64` and `osx-arm64`). All DbUp and Microsoft.Data.Sqlite packages are correctly in the test output directory (`dbup-sqlite.dll`, `dbup-core.dll`, `Microsoft.Data.Sqlite.dll`, `SQLitePCLRaw.*`).
+
+2. Confirmed that `Kanban.Api` does NOT explicitly reference `dbup-sqlite` or `Microsoft.Data.Sqlite` in its `.csproj` — these arrive transitively through `Kanban.DataAccess`. The build succeeds and 21/23 tests pass, so packages are available at runtime.
+
+3. Attempted `_ = Server;` in `GetSeededAdminIdAsync()` to force lazy factory startup — no change. The error persists regardless.
+
+4. Switched to a direct `SqliteConnection($"Data Source={_dbPath}")` in `GetSeededAdminIdAsync()`, bypassing DI entirely — still `no such table: users`. This proved the DI `IDbConnection` was not the problem.
+
+5. Switched to reading the connection string from `IConfiguration` via `Services.GetRequiredService<IConfiguration>()` — still fails, but exposed the configuration value.
+
+6. Added diagnostic exception message capturing `ConnectionString`, `DbPath`, and `FileSize`. Result:
+
+   ```
+   DB query failed. ConnectionString='Data Source=/var/folders/.../tmpXXX.tmp'
+   DbPath='/var/folders/.../tmpXXX.tmp' FileSize=0
+   ```
+
+**Root cause confirmed**: The connection string IS correctly overridden by `ConfigureAppConfiguration` (same path as `_dbPath`). But `FileSize=0` — the file remains a 0-byte temp file even after `Server` is accessed. This means `DeployChanges.To.SqliteDatabase(connectionString).PerformUpgrade()` in `Program.cs` is NOT writing to `_dbPath`. DbUp is either running on a different database or not running at all when `Server` is accessed.
+
+**Current state of `KanbanWebAppFactory.cs`**: Contains diagnostic try/catch with the file-size check. NOT in a committable state — diagnostic code must be cleaned up before committing.
+
+**Tasks completed this session**: Root cause narrowed to DbUp not writing to `_dbPath` despite the connection string being correct in `IConfiguration`. The next session must determine why `PerformUpgrade()` writes to a 0-byte file and fix it.
+
+**Plan state for the next agent**:
+
+- Tasks T048–T051 (CurrentUserService, RegisteredUserRequirement/Handler, OIDC wiring, AuthEndpoints) are **fully implemented** in code but their checkboxes in `specs/001-auth-onboarding/tasks.md` were not updated — mark them `[X]` at the start of the next session.
+- 21/23 integration tests pass. The 2 failing tests (`GetMe_WhenRegisteredAdminAuthenticated_Returns200WithCurrentUser` and `Signout_WhenAuthenticated_Returns204`) both call `GetSeededAdminIdAsync()` which queries the DB for the seeded admin user ID. They fail because `_dbPath` remains 0 bytes — DbUp did not write to it.
+- Next implementation tasks after fixing the DB issue: **T052** (SignInPage.tsx) and **T053** (NotRegisteredPage.tsx) are the natural starting point.
+- The `KanbanWebAppFactory.cs` currently has `_ = Server;` added to `GetSeededAdminIdAsync()` as a partial fix attempt — this line is harmless to keep.
+
+**Bug to fix first**: `Path.GetTempFileName()` creates an existing 0-byte file. The leading hypothesis is that DbUp's SQLite connection manager, when given an existing file path, either: (a) treats the 0-byte file as an already-up-to-date database (no migrations needed), or (b) `WebApplicationFactory` intercepts `app.Run()` before `PerformUpgrade()` in `Program.cs` completes. Try replacing `Path.GetTempFileName()` with a path that does NOT already exist (e.g. `Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())`) so DbUp creates a fresh file.

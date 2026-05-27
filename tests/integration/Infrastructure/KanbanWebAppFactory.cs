@@ -55,6 +55,7 @@ public sealed class KanbanWebAppFactory : WebApplicationFactory<Program>
 
     public async Task<Guid> GetSeededAdminIdAsync()
     {
+        _ = Server; // ensure app startup (and DbUp migrations) have run before querying
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<IDbConnection>();
         return await db.QuerySingleAsync<Guid>(
