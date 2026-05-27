@@ -324,3 +324,32 @@ Ran `/speckit-git-commit` — committed tasks.md as `36c2ee5`.
 **User:** Let's stop for now, update the session logs and commit the changes. We'll pick up later.
 
 **Claude:** Updated session log, staged all changes, and committed.
+
+---
+
+## Session 7
+
+**User:** Let's start back up and sort out what's going on with gitleaks.
+
+**Claude:** Resumed from the blocked commit. Ran `gitleaks protect --staged --config .gitleaks.toml -v` to identify the exact findings. The two flagged lines were in `Program.cs`:
+
+```
+options.ClientId = googleOpts.ClientId;       // line 136
+options.ClientSecret = googleOpts.ClientSecret; // line 137
+```
+
+Root cause: the `dotnet-user-secrets` rule regex `(ClientSecret|ClientId)\s*[:=]\s*["']?[A-Za-z0-9_\-\.]{10,}` had an optional quote (`["']?`), so it matched variable assignments like `googleOpts.ClientSecret` (22 chars, dots allowed) in addition to actual string literals. The intent was to catch hardcoded credential strings, not property-to-property assignments.
+
+Fix: tightened the regex to require both an opening AND closing quote around the value:
+
+```toml
+regex = '''(ClientSecret|ClientId)\s*[:=]\s*["'][A-Za-z0-9_\-\.]{10,}["']'''
+```
+
+This means only lines where the value is a string literal (e.g. `"ClientSecret": "ABCDEF..."`) trigger the rule. Variable assignments like `options.ClientId = googleOpts.ClientId` no longer match. Real secrets hardcoded as string literals still do.
+
+Verified clean with `gitleaks protect --staged` (no leaks found), then committed all T048–T051 changes plus the gitleaks fix in a single commit (`b875dae`).
+
+**User:** Let's first update SESSION_LOG.md and commit that change.
+
+**Claude:** Updated session log and committed.
