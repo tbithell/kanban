@@ -56,12 +56,12 @@ builder.Services.AddOptions<ConnectionStringOptions>()
 
 DapperConfiguration.RegisterTypeHandlers();
 
-var connectionString = builder.Configuration.GetConnectionString("Kanban")
-    ?? throw new InvalidOperationException("ConnectionStrings:Kanban is required.");
-
-builder.Services.AddScoped<IDbConnection>(_ =>
+// Resolve the connection string lazily from IOptions so that WebApplicationFactory
+// configuration overrides (applied after builder services are registered) are honoured.
+builder.Services.AddScoped<IDbConnection>(sp =>
 {
-    var conn = new SqliteConnection(connectionString);
+    var opts = sp.GetRequiredService<IOptions<ConnectionStringOptions>>().Value;
+    var conn = new SqliteConnection(opts.Kanban);
     conn.Open();
     return conn;
 });
@@ -227,6 +227,10 @@ builder.Services.AddRateLimiter(opts =>
 var app = builder.Build();
 
 // ── Migrations ────────────────────────────────────────────────────────────────
+
+// Read connection string post-build so WebApplicationFactory test overrides are resolved.
+var connectionString = app.Configuration.GetConnectionString("Kanban")
+    ?? throw new InvalidOperationException("ConnectionStrings:Kanban is required.");
 
 var seedOptions = app.Services.GetRequiredService<IOptions<SeedOptions>>().Value;
 var migrationsAssembly = AppDomain.CurrentDomain.GetAssemblies()

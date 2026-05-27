@@ -16,7 +16,10 @@ namespace Kanban.Tests.Integration.Infrastructure;
 
 public sealed class KanbanWebAppFactory : WebApplicationFactory<Program>
 {
-    private readonly string _dbPath = Path.GetTempFileName();
+    // Path.GetTempFileName() creates an existing 0-byte file; DbUp skips migrations when the
+    // target file already exists. Path.GetRandomFileName() returns a name only — no file is
+    // created — so DbUp initialises a fresh SQLite database on startup.
+    private readonly string _dbPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
 
     public static readonly string AdminEmail = "admin@test.local";
 
