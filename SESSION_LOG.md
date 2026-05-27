@@ -422,3 +422,31 @@ Both files pass Prettier/ESLint lint-staged. All 6 RTL tests green. Committed as
 **User:** you aren't updating out actual interactions anymore you are back to summaries
 
 **Claude:** You're right — the session log should be the literal conversation, not a summary I write after the fact. Updated to reflect actual dialogue including this note.
+
+---
+
+## Session 10
+
+**User:** Yes, let's continue
+
+**Claude:** Checked tasks.md and source tree — T048–T055 were the completed set from last session, next up are T054 and T055 (useCurrentUser hook and App.tsx routing). Read existing test files, vite.config.ts, package.json, queryClientWrapper, main.tsx.
+
+Plan: RED → GREEN per TDD.
+- Write failing tests first: `tests/hooks/useCurrentUser.test.ts` (3 tests via MSW + renderHook) and `tests/routing/App.test.tsx` (5 tests via vi.mock + MemoryRouter)
+- Commit RED
+- Implement hook, AcceptInvitePage placeholder, App.tsx routing, BrowserRouter in main.tsx
+- Commit GREEN
+
+**User:** [no response yet — work in progress]
+
+**Claude:** Created `tests/hooks/useCurrentUser.test.ts` and `tests/routing/App.test.tsx`. Both fail RED as expected (import resolution errors — source files don't exist yet). Committed `3fcb3c1`.
+
+Then implemented:
+- `src/hooks/useCurrentUser.ts`: `useQuery(['currentUser'])` → `GET /api/v1/auth/me`; `HttpError` class carries `status`; `401` → `isUnauthenticated`, `403` → `isNotRegistered`; `retry: false` on the query
+- `src/pages/AcceptInvitePage.tsx`: placeholder (Fluent UI heading + body; full implementation deferred to T068–T071)
+- `src/App.tsx`: `Routes` + `Route` for `/signin`, `/not-registered`, `/accept/:token`, `/` (protected by `ProtectedRoute` guard component); no `BrowserRouter` in App — stays router-free so tests can wrap with `MemoryRouter`
+- `src/main.tsx`: added `BrowserRouter` wrapping the app
+
+All 14 RTL tests green (8 new + 6 existing). Committed `30e1b66`. T054 and T055 marked [X] in tasks.md.
+
+Next: T056 (failing unit tests for InvitationService) — first task of Phase 4 (US2).
