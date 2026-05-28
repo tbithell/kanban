@@ -509,3 +509,41 @@ Asked: want me to fix BLOCK + WARN now?
 All 93 tests pass: 56 unit ✅ + 23 integration ✅ + 14 RTL ✅
 
 **User:** update the session log first then commit and push
+
+---
+
+## Session 12
+
+**User:** Yep, let's fix the block and warn items and then run all tests to confirm we are all set
+
+**Claude:** Confirmed all BLOCK/WARN fixes were already applied by the linter. Verified the one compile-time issue that remained: `_dbConnection.BeginTransaction(deferred: true)` doesn't exist on `IDbConnection`. Fix: created `src/Kanban.DataAccess/Extensions/DbConnectionExtensions.cs` with a `BeginDeferredTransaction()` extension method (casts to `SqliteConnection` for SQLite; falls back to standard `BeginTransaction()` for other engines). Updated `AuthService.cs` to use it and added `using Kanban.DataAccess.Extensions`.
+
+Clean build — 0 errors, 0 warnings. All tests green: 56 unit ✅ + 23 integration ✅ + 14 RTL ✅
+
+**User:** Let's create a new github issue, with our existing naming convention but modified to indicate this is a story, to cover 001-auth-onboarding US 2, create a new branch with the same name and then /speckit-implement — let's get to work on US2
+
+**Claude:** Created GitHub issue [#4](https://github.com/tbithell/kanban/issues/4) — `story(001-us2): Admin Issues An Invitation` — and branch `001-us2-admin-issues-invitation`. Ran `/speckit-implement`.
+
+**Implementation — T056-T059 [RED commit `09754ca`]:**
+
+All 4 test files written and committed as failing before any implementation:
+
+- `InvitationServiceTests.cs`: 5 unit tests — new email creates invitation; active invite refreshes token (no new record); expired invite creates new record; already-registered email throws `ConflictException(invite.already_registered)`; non-admin throws `ForbiddenException(invite.forbidden)`. All fail: `NotImplementedException`.
+- `InviteEndpointTests.cs`: 5 integration tests — 201 new invite, 200 re-invite, 409 already registered, 422 invalid email, 403 non-admin. All fail: 404 (endpoint not yet mapped).
+- `InviteUserDialog.test.tsx`: 5 RTL tests — email field accessible label, submit disabled when empty, success shows redemption link, 409 "already registered" message, 422 "valid email" message. 4/5 fail behaviourally.
+- `InviteAcceptanceTests.spec.ts`: 5 Playwright e2e placeholders for US2 scenarios 1–5.
+
+Also created stubs: `IInvitationService`, `InvitationService` (throws `NotImplementedException`), `useIssueInvite` hook, `InviteUserDialog` shell. Added `RefreshTokenAsync` to `IInvitationRepository` + `InvitationRepository` (re-invite updates existing record's token hash and expiry — pragmatic design since raw tokens are never stored). Added `InsertActiveInvitationAsync` helper to `KanbanWebAppFactory`.
+
+**Implementation — T060-T065 [GREEN commit `30a8c00`]:**
+
+- **T060** `UserTransforms.ToDto` + `InvitationTransforms.ToResponse` in `Kanban.Business/Transforms/`
+- **T061** `IssueInviteRequestValidator` (FluentValidation `NotEmpty + EmailAddress`); registered via `AddValidatorsFromAssemblyContaining`
+- **T062** `InvitationService.IssueAsync` — admin gate before txn; deferred transaction wraps `FindActiveByEmail` (refresh token on active re-invite) → `FindByEmail` for registered user (throw `ConflictException`) → `InvitationToken.Generate` + `InsertAsync` + `RecordAsync(InvitationIssued)` + commit; Polly retry on `SQLITE_BUSY`
+- **T063** `POST /api/v1/invites` — `Admin` policy; manual FluentValidation; 201 new / 200 existing; caller role from `system_role` claim; frontend base URL from `CorsOptions`
+- **T064** `useIssueInvite` — `useMutation` with typed `IssueInviteError` surface
+- **T065** `InviteUserDialog` — controlled email `Input` (button disabled when empty); read-only redemption link on success; `MessageBar` for 409/422 errors. Fixed: `ResizeObserver` polyfill added to `setupTests.ts` (Fluent UI `MessageBar` uses it internally, not available in jsdom)
+
+All tests green: 61 unit ✅ + 28 integration ✅ + 19 RTL ✅
+
+**User:** perfect, let's update the session log, commit that change and then create a pr
