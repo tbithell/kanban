@@ -56,6 +56,32 @@ public sealed class KanbanWebAppFactory : WebApplicationFactory<Program>
         });
     }
 
+    public async Task InsertActiveInvitationAsync(string email, Guid issuedByUserId)
+    {
+        _ = Server;
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<IDbConnection>();
+        var id = Guid.NewGuid();
+        var tokenHash = Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(
+                System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)));
+        await db.ExecuteAsync(
+            """
+            INSERT INTO invitations (id, email, issued_by_user_id, token_hash, issued_at, expires_at,
+                                     consumed_at, consumed_by_user_id)
+            VALUES (@id, @email, @issuedByUserId, @tokenHash, @issuedAt, @expiresAt, NULL, NULL)
+            """,
+            new
+            {
+                id = id.ToString("D"),
+                email,
+                issuedByUserId = issuedByUserId.ToString("D"),
+                tokenHash,
+                issuedAt = DateTimeOffset.UtcNow.ToString("o"),
+                expiresAt = DateTimeOffset.UtcNow.AddDays(7).ToString("o"),
+            });
+    }
+
     public async Task<Guid> GetSeededAdminIdAsync()
     {
         _ = Server; // ensure app startup (and DbUp migrations) have run before querying
