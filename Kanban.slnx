@@ -1,3 +1,11 @@
 <Solution>
-  <Project Path="Kanban/Kanban.csproj" />
+  <Project Path="src/Kanban.Api/Kanban.Api.csproj" />
+  <Project Path="src/Kanban.Business/Kanban.Business.csproj" />
+  <Project Path="src/Kanban.Domain/Kanban.Domain.csproj" />
+  <Project Path="src/Kanban.Contracts/Kanban.Contracts.csproj" />
+  <Project Path="src/Kanban.AntiCorruption/Kanban.AntiCorruption.csproj" />
+  <Project Path="src/Kanban.Data/Kanban.Data.csproj" />
+  <Project Path="src/Kanban.DataAccess/Kanban.DataAccess.csproj" />
+  <Project Path="tests/unit/Kanban.Tests.Unit.csproj" />
+  <Project Path="tests/integration/Kanban.Tests.Integration.csproj" />
 </Solution>
