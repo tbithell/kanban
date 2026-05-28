@@ -4,10 +4,13 @@ import {
   Button,
   Input,
   Label,
+  MessageBar,
+  MessageBarBody,
   makeStyles,
   tokens,
 } from '@fluentui/react-components'
-import { useIssueInvite } from '../../hooks/useIssueInvite'
+import { useState } from 'react'
+import { type IssueInviteError, useIssueInvite } from '../../hooks/useIssueInvite'
 
 const useStyles = makeStyles({
   root: {
@@ -28,21 +31,65 @@ interface InviteUserDialogProps {
   onDismiss: () => void
 }
 
-export default function InviteUserDialog({ open }: InviteUserDialogProps) {
+export default function InviteUserDialog({ open, onDismiss }: InviteUserDialogProps) {
   const styles = useStyles()
-  const { isPending } = useIssueInvite()
+  const [email, setEmail] = useState('')
+  const { mutate, data, error, isPending } = useIssueInvite()
 
   if (!open) return null
+
+  const inviteError = error as IssueInviteError | null
+
+  const handleSubmit = () => {
+    if (email.trim()) mutate(email.trim())
+  }
 
   return (
     <FluentProvider theme={webLightTheme}>
       <div className={styles.root} role="dialog" aria-modal="true" aria-label="Invite user">
         <div className={styles.field}>
           <Label htmlFor="invite-email">Email address</Label>
-          <Input id="invite-email" type="email" aria-label="Email address" />
+          <Input
+            id="invite-email"
+            type="email"
+            aria-label="Email address"
+            value={email}
+            onChange={(_, d) => setEmail(d.value)}
+          />
         </div>
-        <Button appearance="primary" disabled={isPending}>
+
+        {inviteError?.status === 409 && (
+          <MessageBar intent="error">
+            <MessageBarBody>
+              This email address is already registered. Please use a different address.
+            </MessageBarBody>
+          </MessageBar>
+        )}
+
+        {inviteError?.status === 422 && (
+          <MessageBar intent="error">
+            <MessageBarBody>Must be a valid email address.</MessageBarBody>
+          </MessageBar>
+        )}
+
+        {data && (
+          <div className={styles.field}>
+            <Label htmlFor="redemption-link">Redemption link</Label>
+            <Input
+              id="redemption-link"
+              aria-label="Redemption link"
+              readOnly
+              value={data.redemptionLink}
+            />
+          </div>
+        )}
+
+        <Button appearance="primary" disabled={!email.trim() || isPending} onClick={handleSubmit}>
           Send Invitation
+        </Button>
+
+        <Button appearance="secondary" onClick={onDismiss}>
+          Close
         </Button>
       </div>
     </FluentProvider>
