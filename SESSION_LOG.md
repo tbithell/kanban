@@ -672,3 +672,7 @@ Three fixes applied:
 3. **`InvitationService.cs` + `AuthService.cs`** — both Polly retry policies bumped to `MaxRetryAttempts = 20` with `UseJitter = true` (kept from earlier in this session; the WAL + busy_timeout changes are also still in place).
 
 **Result: 67 unit ✅ + 34 integration ✅ + 24 RTL ✅ — all green including the concurrent test.**
+
+**User:** So we are ready for a PR then, right?
+
+**Claude:** Marked T066–T073 [X] in tasks.md. Pushed branch and created PR #7 — [story(001-us3): Invitee Accepts An Invitation And Signs In](https://github.com/tbithell/kanban/pull/7). PR covers the full US3 implementation with all three test layers green and the concurrent acceptance test confirmed passing.
