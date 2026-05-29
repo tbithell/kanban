@@ -344,6 +344,12 @@ var v1Group = v1.MapGroup("/api/v1")
 AuthEndpoints.Map(v1Group);
 InviteEndpoints.Map(v1Group);
 
+// Invite acceptance requires Google auth but invitee is not yet a RegisteredUser
+var v1AuthGroup = v1.MapGroup("/api/v1")
+    .HasApiVersion(1, 0)
+    .RequireAuthorization();
+InviteEndpoints.MapAcceptEndpoint(v1AuthGroup);
+
 app.Run();
 
 public partial class Program { }

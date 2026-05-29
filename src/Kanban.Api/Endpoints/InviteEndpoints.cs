@@ -1,8 +1,12 @@
+using System.Security.Claims;
 using FluentValidation;
 using Kanban.Api.Auth;
+using Microsoft.AspNetCore.Authentication;
 using Kanban.Business.Interfaces;
+using Kanban.Business.Transforms;
 using Kanban.Contracts;
 using Kanban.Domain.Enums;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using CorsOptions = Kanban.Api.Options.CorsOptions;
@@ -11,6 +15,48 @@ namespace Kanban.Api.Endpoints;
 
 public static class InviteEndpoints
 {
+    public static void MapAcceptEndpoint(IEndpointRouteBuilder routes)
+    {
+        routes.MapPost("/invites/{token}/accept",
+            async (
+                string token,
+                HttpContext ctx,
+                IInvitationService invitationService,
+                CancellationToken ct) =>
+            {
+                var googleEmail = ctx.User.FindFirst("email")?.Value;
+                var googleSub = ctx.User.FindFirst("sub")?.Value;
+                var displayName = ctx.User.FindFirst("name")?.Value ?? googleEmail;
+
+                if (string.IsNullOrEmpty(googleEmail) || string.IsNullOrEmpty(googleSub))
+                    return Results.Unauthorized();
+
+                var user = await invitationService.AcceptAsync(
+                    token, googleEmail, googleSub, displayName!, ct);
+
+                var identity = new ClaimsIdentity(
+                    [
+                        new Claim("sub", googleSub),
+                        new Claim("email", user.Email),
+                        new Claim("user_id", user.Id.ToString()),
+                        new Claim("system_role", "standard"),
+                    ],
+                    CookieAuthenticationDefaults.AuthenticationScheme);
+                await ctx.SignInAsync(
+                    CookieAuthenticationDefaults.AuthenticationScheme,
+                    new ClaimsPrincipal(identity));
+
+                return Results.Ok(UserTransforms.ToDto(user));
+            })
+            .WithName("AcceptInvite")
+            .WithSummary("Accept an invitation and become a registered user")
+            .Produces<CurrentUserDto>(200)
+            .ProducesProblem(410)
+            .ProducesProblem(422)
+            .RequireAuthorization()
+            .RequireRateLimiting("anonymous");
+    }
+
     public static void Map(IEndpointRouteBuilder routes)
     {
         routes.MapPost("/invites",

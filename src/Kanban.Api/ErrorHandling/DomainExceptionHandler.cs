@@ -17,6 +17,7 @@ public sealed class DomainExceptionHandler(IProblemDetailsService problemDetails
 
         var statusCode = domainException switch
         {
+            NotFoundException n when n.Code == "invite.invalid" => StatusCodes.Status410Gone,
             NotFoundException => StatusCodes.Status404NotFound,
             ForbiddenException => StatusCodes.Status403Forbidden,
             ConflictException => StatusCodes.Status409Conflict,

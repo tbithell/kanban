@@ -33,6 +33,8 @@ public sealed class InvitationServiceTests
             => connection.BeginTransaction();
     }
 
+    // ── IssueAsync tests ──────────────────────────────────────────────────────
+
     [Fact]
     public async Task IssueAsync_NewEmail_CreatesInvitationAndLogsInvitationIssuedEvent()
     {
@@ -119,18 +121,115 @@ public sealed class InvitationServiceTests
             .Where(e => e.Code == "invite.forbidden");
     }
 
+    // ── AcceptAsync tests ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task AcceptAsync_ValidTokenMatchingEmail_CreatesUserAndRecordsAcceptedEvent()
+    {
+        var invitation = InvitationBuilder.AnInvitation().ForEmail("invitee@example.com").Build();
+        var invitationRepo = new FakeInvitationRepository(byTokenHash: invitation, tryConsumeResult: true);
+        var userRepo = new FakeUserRepository();
+        var authEventRepo = new FakeAuthEventRepository();
+        var sut = CreateSut(invitationRepo, userRepo, authEventRepo);
+
+        var user = await sut.AcceptAsync(
+            rawToken: "validrawtoken",
+            googleEmail: "invitee@example.com",
+            googleSub: "google-sub-123",
+            displayName: "Invitee User");
+
+        user.Email.Should().Be("invitee@example.com");
+        user.SystemRole.Should().Be(SystemRole.Standard);
+        user.GoogleSub.Should().Be("google-sub-123");
+        userRepo.InsertedUsers.Should().ContainSingle();
+        authEventRepo.RecordedEvents.Should().ContainSingle(e =>
+            e.EventType == AuthEventType.InvitationAccepted);
+    }
+
+    [Fact]
+    public async Task AcceptAsync_ExpiredToken_ThrowsNotFoundException()
+    {
+        var invitationRepo = new FakeInvitationRepository(tryConsumeResult: false);
+        var sut = CreateSut(invitationRepo, new FakeUserRepository(), new FakeAuthEventRepository());
+
+        var act = () => sut.AcceptAsync("expiredrawtoken", "user@example.com", "sub", "User");
+
+        await act.Should().ThrowAsync<NotFoundException>()
+            .Where(e => e.Code == "invite.invalid");
+    }
+
+    [Fact]
+    public async Task AcceptAsync_ConsumedToken_ThrowsNotFoundException()
+    {
+        var invitationRepo = new FakeInvitationRepository(tryConsumeResult: false);
+        var sut = CreateSut(invitationRepo, new FakeUserRepository(), new FakeAuthEventRepository());
+
+        var act = () => sut.AcceptAsync("consumedrawtoken", "user@example.com", "sub", "User");
+
+        await act.Should().ThrowAsync<NotFoundException>()
+            .Where(e => e.Code == "invite.invalid");
+    }
+
+    [Fact]
+    public async Task AcceptAsync_NonExistentToken_ThrowsNotFoundException()
+    {
+        var invitationRepo = new FakeInvitationRepository(tryConsumeResult: false);
+        var sut = CreateSut(invitationRepo, new FakeUserRepository(), new FakeAuthEventRepository());
+
+        var act = () => sut.AcceptAsync("fabricatedtoken", "user@example.com", "sub", "User");
+
+        await act.Should().ThrowAsync<NotFoundException>()
+            .Where(e => e.Code == "invite.invalid");
+    }
+
+    [Fact]
+    public async Task AcceptAsync_EmailMismatch_ThrowsBusinessRuleException()
+    {
+        var invitation = InvitationBuilder.AnInvitation().ForEmail("person@example.com").Build();
+        var invitationRepo = new FakeInvitationRepository(byTokenHash: invitation, tryConsumeResult: true);
+        var sut = CreateSut(invitationRepo, new FakeUserRepository(), new FakeAuthEventRepository());
+
+        var act = () => sut.AcceptAsync("validrawtoken", "different@example.com", "sub", "User");
+
+        await act.Should().ThrowAsync<BusinessRuleException>()
+            .Where(e => e.Code == "invite.email_mismatch");
+    }
+
+    [Fact]
+    public async Task AcceptAsync_ConcurrentSecondCall_ThrowsNotFoundException()
+    {
+        var invitationRepo = new FakeInvitationRepository(tryConsumeResult: false);
+        var sut = CreateSut(invitationRepo, new FakeUserRepository(), new FakeAuthEventRepository());
+
+        var act = () => sut.AcceptAsync("alreadyconsumedtoken", "user@example.com", "sub", "User");
+
+        await act.Should().ThrowAsync<NotFoundException>()
+            .Where(e => e.Code == "invite.invalid");
+    }
+
+    // ── Fakes ─────────────────────────────────────────────────────────────────
+
     private sealed class FakeInvitationRepository : IInvitationRepository
     {
         private readonly Invitation? _activeByEmail;
+        private readonly Invitation? _byTokenHash;
+        private readonly bool _tryConsumeResult;
 
         public List<Invitation> InsertedInvitations { get; } = [];
         public List<Guid> RefreshedIds { get; } = [];
 
-        public FakeInvitationRepository(Invitation? activeByEmail)
-            => _activeByEmail = activeByEmail;
+        public FakeInvitationRepository(
+            Invitation? activeByEmail = null,
+            Invitation? byTokenHash = null,
+            bool tryConsumeResult = true)
+        {
+            _activeByEmail = activeByEmail;
+            _byTokenHash = byTokenHash;
+            _tryConsumeResult = tryConsumeResult;
+        }
 
         public Task<Invitation?> FindByTokenHashAsync(string tokenHash, IDbTransaction? tx = null)
-            => Task.FromResult<Invitation?>(null);
+            => Task.FromResult(_byTokenHash);
 
         public Task<Invitation?> FindActiveByEmailAsync(string email, IDbTransaction? tx = null)
             => Task.FromResult(_activeByEmail);
@@ -142,7 +241,8 @@ public sealed class InvitationServiceTests
         }
 
         public Task<bool> TryConsumeAsync(string tokenHash, Guid userId,
-            DateTimeOffset consumedAt, IDbTransaction tx) => Task.FromResult(false);
+            DateTimeOffset consumedAt, IDbTransaction tx)
+            => Task.FromResult(_tryConsumeResult);
 
         public Task RefreshTokenAsync(Guid id, string newTokenHash, DateTimeOffset newExpiresAt,
             IDbTransaction tx)
@@ -156,7 +256,9 @@ public sealed class InvitationServiceTests
     {
         private readonly User? _byEmail;
 
-        public FakeUserRepository(User? byEmail) => _byEmail = byEmail;
+        public List<User> InsertedUsers { get; } = [];
+
+        public FakeUserRepository(User? byEmail = null) => _byEmail = byEmail;
 
         public Task<User?> FindByGoogleSubAsync(string googleSub, IDbTransaction? tx = null)
             => Task.FromResult<User?>(null);
@@ -167,7 +269,11 @@ public sealed class InvitationServiceTests
         public Task<User?> FindByIdAsync(Guid id, IDbTransaction? tx = null)
             => Task.FromResult<User?>(null);
 
-        public Task InsertAsync(User user, IDbTransaction tx) => Task.CompletedTask;
+        public Task InsertAsync(User user, IDbTransaction tx)
+        {
+            InsertedUsers.Add(user);
+            return Task.CompletedTask;
+        }
 
         public Task LinkGoogleSubAsync(Guid userId, string googleSub, IDbTransaction tx)
             => Task.CompletedTask;

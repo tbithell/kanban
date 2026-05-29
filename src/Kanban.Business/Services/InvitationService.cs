@@ -132,4 +132,12 @@ public sealed class InvitationService : IInvitationService
             }
         }, cancellationToken);
     }
+
+    public Task<User> AcceptAsync(
+        string rawToken,
+        string googleEmail,
+        string googleSub,
+        string displayName,
+        CancellationToken cancellationToken = default)
+        => throw new NotImplementedException("AcceptAsync not yet implemented.");
 }
