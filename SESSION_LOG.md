@@ -579,3 +579,9 @@ All tests green: 61 unit ✅ + 28 integration ✅ + 19 RTL ✅
 6. **Refresh path** — added `InvitationTransforms.ToResponse(string rawToken, DateTimeOffset expiresAt, string frontendBaseUrl)` overload; refresh path now delegates to it instead of hand-rolling `IssueInviteResponse`
 
 All tests green: 61 unit ✅ + 28 integration ✅ + 19 RTL ✅
+
+Note on Fix 3 (stale dialog): ESLint blocked `setEmail('')` inside `useEffect` (`react-hooks/set-state-in-effect`). Final pattern: `useEffect` calls only `reset()` (external API — valid in effects); `handleDismiss` clears email state before delegating to `onDismiss`.
+
+Fixes committed (`0471bec`) and pushed to PR #5.
+
+**User:** update the session logs while I go review and approve
