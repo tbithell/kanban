@@ -9,9 +9,12 @@ using Kanban.Api.Auth;
 using Kanban.Api.ErrorHandling;
 using Kanban.Api.Health;
 using Kanban.Api.Options;
+using FluentValidation;
 using Kanban.Business.Interfaces;
 using Kanban.Business.Services;
 using Kanban.Api.Endpoints;
+using Kanban.Api.Infrastructure;
+using Kanban.Api.Validators;
 using Kanban.DataAccess;
 using Kanban.DataAccess.Interfaces;
 using Kanban.DataAccess.Repositories;
@@ -102,10 +105,13 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IInvitationService, InvitationService>();
+builder.Services.AddSingleton<IDbConnectionFactory, SqliteConnectionFactory>();
 builder.Services.AddScoped<GoogleIdentityAdapter>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthEventRepository, AuthEventRepository>();
 builder.Services.AddScoped<IInvitationRepository, InvitationRepository>();
+builder.Services.AddValidatorsFromAssemblyContaining<IssueInviteRequestValidator>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthorizationHandler, RegisteredUserHandler>();
 
@@ -336,7 +342,7 @@ var v1Group = v1.MapGroup("/api/v1")
     .HasApiVersion(1, 0)
     .RequireAuthorization("RegisteredUser");
 AuthEndpoints.Map(v1Group);
-// T060: InviteEndpoints.Map(v1Group);
+InviteEndpoints.Map(v1Group);
 
 app.Run();
 

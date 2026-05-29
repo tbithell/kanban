@@ -509,3 +509,79 @@ Asked: want me to fix BLOCK + WARN now?
 All 93 tests pass: 56 unit ✅ + 23 integration ✅ + 14 RTL ✅
 
 **User:** update the session log first then commit and push
+
+---
+
+## Session 12
+
+**User:** Yep, let's fix the block and warn items and then run all tests to confirm we are all set
+
+**Claude:** Confirmed all BLOCK/WARN fixes were already applied by the linter. Verified the one compile-time issue that remained: `_dbConnection.BeginTransaction(deferred: true)` doesn't exist on `IDbConnection`. Fix: created `src/Kanban.DataAccess/Extensions/DbConnectionExtensions.cs` with a `BeginDeferredTransaction()` extension method (casts to `SqliteConnection` for SQLite; falls back to standard `BeginTransaction()` for other engines). Updated `AuthService.cs` to use it and added `using Kanban.DataAccess.Extensions`.
+
+Clean build — 0 errors, 0 warnings. All tests green: 56 unit ✅ + 23 integration ✅ + 14 RTL ✅
+
+**User:** Let's create a new github issue, with our existing naming convention but modified to indicate this is a story, to cover 001-auth-onboarding US 2, create a new branch with the same name and then /speckit-implement — let's get to work on US2
+
+**Claude:** Created GitHub issue [#4](https://github.com/tbithell/kanban/issues/4) — `story(001-us2): Admin Issues An Invitation` — and branch `001-us2-admin-issues-invitation`. Ran `/speckit-implement`.
+
+**Implementation — T056-T059 [RED commit `09754ca`]:**
+
+All 4 test files written and committed as failing before any implementation:
+
+- `InvitationServiceTests.cs`: 5 unit tests — new email creates invitation; active invite refreshes token (no new record); expired invite creates new record; already-registered email throws `ConflictException(invite.already_registered)`; non-admin throws `ForbiddenException(invite.forbidden)`. All fail: `NotImplementedException`.
+- `InviteEndpointTests.cs`: 5 integration tests — 201 new invite, 200 re-invite, 409 already registered, 422 invalid email, 403 non-admin. All fail: 404 (endpoint not yet mapped).
+- `InviteUserDialog.test.tsx`: 5 RTL tests — email field accessible label, submit disabled when empty, success shows redemption link, 409 "already registered" message, 422 "valid email" message. 4/5 fail behaviourally.
+- `InviteAcceptanceTests.spec.ts`: 5 Playwright e2e placeholders for US2 scenarios 1–5.
+
+Also created stubs: `IInvitationService`, `InvitationService` (throws `NotImplementedException`), `useIssueInvite` hook, `InviteUserDialog` shell. Added `RefreshTokenAsync` to `IInvitationRepository` + `InvitationRepository` (re-invite updates existing record's token hash and expiry — pragmatic design since raw tokens are never stored). Added `InsertActiveInvitationAsync` helper to `KanbanWebAppFactory`.
+
+**Implementation — T060-T065 [GREEN commit `30a8c00`]:**
+
+- **T060** `UserTransforms.ToDto` + `InvitationTransforms.ToResponse` in `Kanban.Business/Transforms/`
+- **T061** `IssueInviteRequestValidator` (FluentValidation `NotEmpty + EmailAddress`); registered via `AddValidatorsFromAssemblyContaining`
+- **T062** `InvitationService.IssueAsync` — admin gate before txn; deferred transaction wraps `FindActiveByEmail` (refresh token on active re-invite) → `FindByEmail` for registered user (throw `ConflictException`) → `InvitationToken.Generate` + `InsertAsync` + `RecordAsync(InvitationIssued)` + commit; Polly retry on `SQLITE_BUSY`
+- **T063** `POST /api/v1/invites` — `Admin` policy; manual FluentValidation; 201 new / 200 existing; caller role from `system_role` claim; frontend base URL from `CorsOptions`
+- **T064** `useIssueInvite` — `useMutation` with typed `IssueInviteError` surface
+- **T065** `InviteUserDialog` — controlled email `Input` (button disabled when empty); read-only redemption link on success; `MessageBar` for 409/422 errors. Fixed: `ResizeObserver` polyfill added to `setupTests.ts` (Fluent UI `MessageBar` uses it internally, not available in jsdom)
+
+All tests green: 61 unit ✅ + 28 integration ✅ + 19 RTL ✅
+
+**User:** perfect, let's update the session log, commit that change and then create a pr
+
+---
+
+## Session 13
+
+**User:** review the changes in the PR
+
+**Claude:** Ran `/code-review --pr 5`. Executed 7 parallel finder angles (line-by-line, removed-behavior, cross-file, reuse, simplification, efficiency, altitude) followed by single-verifier pass on each candidate. Two races refuted: RefreshTokenAsync race ruled out by deferred-transaction isolation; 422 traceId ruled out by `AddProblemDetails.CustomizeProblemDetails` applying universally.
+
+**Findings (6 survived verification):**
+
+| # | Severity | Finding |
+|---|----------|---------|
+| 1 | BLOCK | `InvitationService.cs:87,127` — raw invitee `email` logged as structured field; violates constitution's hard "NEVER log email addresses" prohibition |
+| 2 | BLOCK | `DbConnectionExtensions.cs:10` — `SqliteConnection` cast inside `Kanban.DataAccess`; violates constitution's concrete-type rule; silently degrades to non-deferred on Postgres swap |
+| 3 | WARN | `InviteUserDialog.tsx:33` — mutation `data`/`error` not reset when dialog closes; stale redemption link or error renders immediately on next open |
+| 4 | WARN | `InviteEndpoints.cs:48` — `?? "http://localhost:5173"` fallback is latent breakage if CorsOptions registration bypassed |
+| 5 | WARN | `AuthService.cs:53` — private `ToDto` still in place; `UserTransforms.ToDto` introduced but never used by AuthService |
+| 6 | WARN | `InvitationService.cs:88` — refresh path hand-rolls `IssueInviteResponse` inline; bypasses `InvitationTransforms.ToResponse`, duplicating the URL format string |
+
+**User:** go ahead and fix all findings and update session log
+
+**Claude:** Applied all 6 fixes:
+
+1. **PII logs** — removed `{Email}` from both log calls in `InvitationService`; logs now contain only `{IssuedByUserId}` (GUID)
+2. **IDbConnectionFactory abstraction** — deleted `DbConnectionExtensions.cs` from `Kanban.DataAccess`; created `IDbConnectionFactory` interface in `Kanban.DataAccess.Interfaces`; created `SqliteConnectionFactory` in `Kanban.Api/Infrastructure/` (the one location allowed to reference `SqliteConnection`); injected into both `AuthService` and `InvitationService`; registered as singleton in `Program.cs`; unit tests updated with `FakeDbConnectionFactory`
+3. **Stale dialog state** — added `useEffect` to `InviteUserDialog` that calls `reset()` and clears `email` when `open` flips to false; `reset` destructured from `useIssueInvite()`
+4. **Localhost fallback** — replaced `?? "http://localhost:5173"` with `?? throw new InvalidOperationException(...)` so misconfiguration surfaces immediately
+5. **AuthService.ToDto** — removed private `ToDto` method; added `using Kanban.Business.Transforms`; `GetCurrentUserAsync` now calls `UserTransforms.ToDto(user)`
+6. **Refresh path** — added `InvitationTransforms.ToResponse(string rawToken, DateTimeOffset expiresAt, string frontendBaseUrl)` overload; refresh path now delegates to it instead of hand-rolling `IssueInviteResponse`
+
+All tests green: 61 unit ✅ + 28 integration ✅ + 19 RTL ✅
+
+Note on Fix 3 (stale dialog): ESLint blocked `setEmail('')` inside `useEffect` (`react-hooks/set-state-in-effect`). Final pattern: `useEffect` calls only `reset()` (external API — valid in effects); `handleDismiss` clears email state before delegating to `onDismiss`.
+
+Fixes committed (`0471bec`) and pushed to PR #5.
+
+**User:** update the session logs while I go review and approve

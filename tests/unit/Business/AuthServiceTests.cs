@@ -18,7 +18,14 @@ public sealed class AuthServiceTests
     {
         var connection = new SqliteConnection("Data Source=:memory:");
         connection.Open();
-        return new AuthService(userRepo, authEventRepo, connection, NullLogger<AuthService>.Instance);
+        return new AuthService(userRepo, authEventRepo, connection, new FakeDbConnectionFactory(),
+            NullLogger<AuthService>.Instance);
+    }
+
+    private sealed class FakeDbConnectionFactory : IDbConnectionFactory
+    {
+        public IDbTransaction BeginDeferredTransaction(IDbConnection connection)
+            => connection.BeginTransaction();
     }
 
     [Fact]

@@ -1,8 +1,8 @@
 using System.Data;
 using System.Security.Claims;
 using Kanban.Business.Interfaces;
+using Kanban.Business.Transforms;
 using Kanban.Contracts;
-using Kanban.DataAccess.Extensions;
 using Kanban.DataAccess.Interfaces;
 using Kanban.Domain;
 using Kanban.Domain.Entities;
@@ -19,6 +19,7 @@ public sealed class AuthService : IAuthService
     private readonly IUserRepository _userRepository;
     private readonly IAuthEventRepository _authEventRepository;
     private readonly IDbConnection _dbConnection;
+    private readonly IDbConnectionFactory _transactionFactory;
     private readonly ILogger<AuthService> _logger;
 
     private static readonly ResiliencePipeline RetryPolicy =
@@ -38,27 +39,20 @@ public sealed class AuthService : IAuthService
         IUserRepository userRepository,
         IAuthEventRepository authEventRepository,
         IDbConnection dbConnection,
+        IDbConnectionFactory transactionFactory,
         ILogger<AuthService> logger)
     {
         Verify.That(userRepository).IsNotNull();
         Verify.That(authEventRepository).IsNotNull();
         Verify.That(dbConnection).IsNotNull();
+        Verify.That(transactionFactory).IsNotNull();
         Verify.That(logger).IsNotNull();
         _userRepository = userRepository;
         _authEventRepository = authEventRepository;
         _dbConnection = dbConnection;
+        _transactionFactory = transactionFactory;
         _logger = logger;
     }
-
-    private static CurrentUserDto ToDto(User user) => new()
-    {
-        Id = user.Id,
-        Email = user.Email,
-        DisplayName = user.DisplayName,
-        SystemRole = user.SystemRole == SystemRole.Admin ? "admin" : "standard",
-        RegisteredAt = user.RegisteredAt,
-        LastSignInAt = user.LastSignInAt,
-    };
 
     public async Task<CurrentUserDto?> GetCurrentUserAsync(
         Guid userId,
@@ -66,7 +60,7 @@ public sealed class AuthService : IAuthService
     {
         Verify.That(userId).IsNotDefault();
         var user = await _userRepository.FindByIdAsync(userId);
-        return user is null ? null : ToDto(user);
+        return user is null ? null : UserTransforms.ToDto(user);
     }
 
     public async Task HandleSignInAsync(
@@ -81,7 +75,7 @@ public sealed class AuthService : IAuthService
 
         await RetryPolicy.ExecuteAsync(async ct =>
         {
-            using var tx = _dbConnection.BeginDeferredTransaction();
+            using var tx = _transactionFactory.BeginDeferredTransaction(_dbConnection);
             try
             {
                 var user = await _userRepository.FindByGoogleSubAsync(googleSub, tx);

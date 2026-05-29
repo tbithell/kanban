@@ -10,4 +10,6 @@ public interface IInvitationRepository
     Task InsertAsync(Invitation invitation, IDbTransaction tx);
     Task<bool> TryConsumeAsync(string tokenHash, Guid userId, DateTimeOffset consumedAt,
                                IDbTransaction tx);
+    Task RefreshTokenAsync(Guid id, string newTokenHash, DateTimeOffset newExpiresAt,
+                           IDbTransaction tx);
 }

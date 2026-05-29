@@ -100,4 +100,22 @@ public sealed class InvitationRepository : IInvitationRepository
 
         return rowsAffected == 1;
     }
+
+    public async Task RefreshTokenAsync(Guid id, string newTokenHash, DateTimeOffset newExpiresAt,
+                                        IDbTransaction tx)
+    {
+        Verify.That(id).IsNotDefault();
+        Verify.That(newTokenHash).IsNotNull().IsNotEmpty();
+        Verify.That(tx).IsNotNull();
+
+        const string sql = """
+            UPDATE invitations SET token_hash = @newTokenHash, expires_at = @newExpiresAt
+            WHERE id = @id
+            """;
+
+        await _connection.ExecuteAsync(
+            sql,
+            new { id = id.ToString("D"), newTokenHash, newExpiresAt = newExpiresAt.ToString("o") },
+            transaction: tx);
+    }
 }
