@@ -145,6 +145,15 @@ builder.Services.AddAuthentication(options =>
             .Get<GoogleAuthOptions>()!;
         options.ClientId = googleOpts.ClientId;
         options.ClientSecret = googleOpts.ClientSecret;
+
+        // ASP.NET Core's default ClaimActions remap "sub" → ClaimTypes.NameIdentifier
+        // (a long URN). GoogleIdentityAdapter expects the raw OIDC claim names, so we
+        // clear the defaults and map only the three fields the adapter actually reads.
+        options.ClaimActions.Clear();
+        options.ClaimActions.MapJsonKey("sub", "sub");
+        options.ClaimActions.MapJsonKey("email", "email");
+        options.ClaimActions.MapJsonKey("name", "name");
+
         options.Events.OnTicketReceived = async ctx =>
         {
             var adapter = ctx.HttpContext.RequestServices
@@ -340,6 +349,9 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference();
+
+    var devGroup = app.MapGroup("/api/v1").AllowAnonymous();
+    DevEndpoints.Map(devGroup);
 }
 
 // ── Versioned API (v1) — endpoints registered in Endpoints/ ───────────────────

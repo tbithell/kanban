@@ -16,8 +16,14 @@ export interface AcceptInviteError {
 }
 
 async function acceptInvite(token: string): Promise<AcceptInviteResponse> {
-  void token
-  throw new Error('useAcceptInvite not yet implemented')
+  const response = await fetch(`/api/v1/invites/${encodeURIComponent(token)}/accept`, {
+    method: 'POST',
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw { status: response.status, code: body.code, title: body.title } as AcceptInviteError
+  }
+  return response.json() as Promise<AcceptInviteResponse>
 }
 
 export function useAcceptInvite() {

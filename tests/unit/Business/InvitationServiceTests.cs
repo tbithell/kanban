@@ -149,6 +149,7 @@ public sealed class InvitationServiceTests
     [Fact]
     public async Task AcceptAsync_ExpiredToken_ThrowsNotFoundException()
     {
+        // TryConsumeAsync SQL: expires_at > @now → returns false for expired tokens
         var invitationRepo = new FakeInvitationRepository(tryConsumeResult: false);
         var sut = CreateSut(invitationRepo, new FakeUserRepository(), new FakeAuthEventRepository());
 
@@ -161,6 +162,7 @@ public sealed class InvitationServiceTests
     [Fact]
     public async Task AcceptAsync_ConsumedToken_ThrowsNotFoundException()
     {
+        // TryConsumeAsync SQL: consumed_at IS NULL → returns false for already-consumed tokens
         var invitationRepo = new FakeInvitationRepository(tryConsumeResult: false);
         var sut = CreateSut(invitationRepo, new FakeUserRepository(), new FakeAuthEventRepository());
 
@@ -173,6 +175,7 @@ public sealed class InvitationServiceTests
     [Fact]
     public async Task AcceptAsync_NonExistentToken_ThrowsNotFoundException()
     {
+        // TryConsumeAsync SQL: no matching row → returns false for fabricated tokens
         var invitationRepo = new FakeInvitationRepository(tryConsumeResult: false);
         var sut = CreateSut(invitationRepo, new FakeUserRepository(), new FakeAuthEventRepository());
 
@@ -198,7 +201,9 @@ public sealed class InvitationServiceTests
     [Fact]
     public async Task AcceptAsync_ConcurrentSecondCall_ThrowsNotFoundException()
     {
-        var invitationRepo = new FakeInvitationRepository(tryConsumeResult: false);
+        // Invitation was valid on read, but consumed by another concurrent request before TryConsumeAsync
+        var invitation = InvitationBuilder.AnInvitation().ForEmail("user@example.com").Build();
+        var invitationRepo = new FakeInvitationRepository(byTokenHash: invitation, tryConsumeResult: false);
         var sut = CreateSut(invitationRepo, new FakeUserRepository(), new FakeAuthEventRepository());
 
         var act = () => sut.AcceptAsync("alreadyconsumedtoken", "user@example.com", "sub", "User");
@@ -240,9 +245,12 @@ public sealed class InvitationServiceTests
             return Task.CompletedTask;
         }
 
-        public Task<bool> TryConsumeAsync(string tokenHash, Guid userId,
-            DateTimeOffset consumedAt, IDbTransaction tx)
+        public Task<bool> TryConsumeAsync(string tokenHash, DateTimeOffset consumedAt,
+            IDbTransaction tx)
             => Task.FromResult(_tryConsumeResult);
+
+        public Task RecordConsumerAsync(string tokenHash, Guid consumedByUserId, IDbTransaction tx)
+            => Task.CompletedTask;
 
         public Task RefreshTokenAsync(Guid id, string newTokenHash, DateTimeOffset newExpiresAt,
             IDbTransaction tx)

@@ -194,10 +194,16 @@ public sealed class InviteEndpointTests : IClassFixture<KanbanWebAppFactory>
         var responses = await Task.WhenAll(tasks);
         var statusCodes = responses.Select(r => r.StatusCode).ToList();
 
-        statusCodes.Count(c => c == HttpStatusCode.OK).Should().Be(1);
-        statusCodes.Count(c => c == HttpStatusCode.Gone).Should().Be(19);
+        var grouped = statusCodes.GroupBy(c => c)
+            .Select(g => $"{g.Key}:{g.Count()}")
+            .OrderBy(s => s);
+        statusCodes.Count(c => c == HttpStatusCode.OK).Should()
+            .Be(1, $"status codes were: {string.Join(", ", grouped)}");
+        statusCodes.Count(c => c == HttpStatusCode.Gone).Should()
+            .Be(19, $"status codes were: {string.Join(", ", grouped)}");
 
         var userCount = await _factory.CountUsersForEmailAsync(email);
         userCount.Should().Be(1);
     }
+
 }

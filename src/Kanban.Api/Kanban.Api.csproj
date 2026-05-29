@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
     <ProjectReference Include="..\Kanban.Business\Kanban.Business.csproj" />
@@ -18,6 +18,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>4efd30c7-fcf1-499f-987a-d4f6bbc0c909</UserSecretsId>
   </PropertyGroup>
 
 </Project>

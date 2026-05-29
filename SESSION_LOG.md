@@ -700,3 +700,54 @@ Four fixes applied:
 4. **NOTE fixed** — `Program.cs`: renamed `v1Group` → `v1RegisteredUserGroup` and `v1AuthGroup` → `v1GoogleAuthGroup` so the auth requirement is self-documenting at the registration site and maintainers can't accidentally register an endpoint in the wrong group silently.
 
 All tests remain green: 67 unit ✅ + 34 integration ✅ + 24 RTL ✅
+
+**User:** I see we can't move forward on Playwright tests without the Google Cloud setup. I have a free Google Cloud account set up. I plan to spend $0. What do I need to set up to get Playwright tests up and running?
+
+**Claude:** Explained two concerns: (1) Google Cloud Console setup — all free: create OAuth 2.0 Web Application credential, add authorized redirect URIs (`http://localhost:5077/signin-google` and `https://localhost:7282/signin-google`), set consent screen to External/Testing, add test users. Authorized JavaScript Origins not required (app uses server-side OIDC, not the JS library). (2) Google blocks automated browser sign-in (reCAPTCHA/bot detection), so raw Playwright cannot automate the Google sign-in page.
+
+**User:** The first authorized URI is what goes in Authorized JavaScript Origins I assume, why is it not https?
+
+**Claude:** Clarified: Authorized JavaScript Origins is not needed at all — that field is for browser-side Google Sign-In JS library, which this app doesn't use. Authorized Redirect URIs is the field that matters. HTTP is allowed for localhost specifically because Google makes a local-dev exception — HTTPS is not required for localhost redirects.
+
+**User:** OK, I'm all set up. I think I'd like to do both — Playwright in CI, but also trigger a full demo. What do you recommend?
+
+**Claude:** Recommended dual-path architecture: one test suite, two auth paths controlled by `PLAYWRIGHT_AUTH_BYPASS=true`. CI path calls `GET /api/v1/dev/authenticate` (Development-only endpoint) to issue cookies without Google. Demo path uses Playwright `globalSetup` / `auth.setup.ts` with real Google OAuth and saved `storageState`.
+
+**User:** yes, let's also update the GitHub issue and PR description to include this detail. Reference our plan.md and make sure we have this covered.
+
+**Claude:** Implemented the full Playwright infrastructure:
+
+- **`src/Kanban.Api/Endpoints/DevEndpoints.cs`** (new) — `GET /api/v1/dev/authenticate?email=...` issues a real auth cookie without Google (looks up user by email; issues unregistered Google-user cookie if email not in DB); `POST /api/v1/dev/seed/invitation` seeds invitation records with controlled states for error-scenario tests. Both are `AllowAnonymous`, registered only in Development.
+- **`src/Kanban.Api/Program.cs`** — registered `DevEndpoints.Map(devGroup)` inside the `IsDevelopment()` block.
+- **`tests/e2e/auth.setup.ts`** (new) — bypass path (three `setup.skip(!BYPASS, ...)` tests covering admin, invitee, unregistered) and real Google path (headed Chrome, 3-minute timeout, saves storageState).
+- **`tests/e2e/auth.helpers.ts`** (new) — shared constants for auth file paths, base URLs, test emails.
+- **`tests/e2e/playwright.config.ts`** — added `setup` project, `webServer` for Vite (auto-start with `reuseExistingServer: true`), and `chromium` project depending on setup.
+- **`tests/e2e/Auth/AdminSignInTests.spec.ts`** — all 4 US1 scenarios real: admin auth via `test.use({ storageState: ADMIN_AUTH })`, unregistered redirect, unauthenticated redirect.
+- **`tests/e2e/Auth/InviteAcceptanceTests.spec.ts`** — US3 scenario 1 (full acceptance with unique email per run), scenarios 3–6 (error states via seeded tokens), US2 scenarios 1–5 + US3-2 scaffolded (`test.fixme`) pending board page.
+- **`tests/e2e/package.json`** — scripts: `test:e2e` (bypass/CI), `test:e2e:setup` (demo one-time), `test:e2e:demo` (demo run), `test:e2e:report`.
+- **`tests/e2e/.gitignore`** (new) — ignores `playwright/.auth/`, `playwright-report/`, `test-results/`.
+- **`tests/e2e/README.md`** (new) — unambiguous setup docs: prerequisites, step-by-step for both modes, port map, troubleshooting.
+- **`specs/001-auth-onboarding/quickstart.md`** — updated Run Tests section with clear e2e commands and link to README.
+- **`.gitignore`** — added `*.db`, `*.db-shm`, `*.db-wal`, `tests/e2e/playwright/.auth/`.
+
+**User:** When I run the setup test, the `google: authenticate as admin` test fails with `ERR_CONNECTION_REFUSED` at localhost:5173.
+
+**Claude:** Root cause: the test isn't skipped (no `PLAYWRIGHT_AUTH_BYPASS`) and hits `localhost:5173` before the Vite server is up. Fixed by adding `webServer` config to `playwright.config.ts` with `reuseExistingServer: true` — Playwright auto-starts Vite if not already running, or reuses it if it is.
+
+**User:** I got "This browser or app may not be secure" from Google.
+
+**Claude:** Two-part fix: (1) added `channel: 'chrome'` to the setup project to use real installed Chrome instead of Playwright's bundled Chromium; (2) added `--disable-blink-features=AutomationControlled` launch arg to strip the `navigator.webdriver` flag that Playwright injects and Google detects. Also updated `README.md` with the prerequisite (real Chrome must be installed) and a troubleshooting entry.
+
+**User:** I got the error again after restarting the API.
+
+**Claude:** The `channel: 'chrome'` flag alone isn't sufficient — `navigator.webdriver` is still injected. The `--disable-blink-features=AutomationControlled` launch arg was not yet applied at the time of the previous run; confirmed it is now in place. Extended the test timeout from Playwright's default 30s to 180s (`setup.setTimeout(180_000)`) with `waitForURL` at 170s so the user has time to complete the manual Google sign-in.
+
+**User:** I got `{"code":"google.missing_sub","status":502}` after signing in.
+
+**Claude:** Root cause: ASP.NET Core's `AddGoogle()` default `ClaimActions` remap the OIDC `sub` field to `ClaimTypes.NameIdentifier` (a long URN). `GoogleIdentityAdapter` looked for the raw `"sub"` claim name, which no longer existed on the principal after remapping. Fix: in `Program.cs`, called `options.ClaimActions.Clear()` then explicitly mapped `sub → "sub"`, `email → "email"`, `name → "name"` so the adapter gets the raw OIDC names it expects.
+
+**User:** Progress made but now getting a 404 after signing in.
+
+**Claude:** Root cause: after Google's OAuth callback, ASP.NET redirects to `RedirectUri = "/"` — which resolves to the API root (`localhost:5077/`), not the frontend. The API has no route at `/`, so 404. Fix: updated `AuthEndpoints` `/signin` handler to inject `IOptions<CorsOptions>`, use `AllowedOrigins[0]` as the default redirect target, and resolve relative `returnUrl` paths against the frontend base URL (so `/accept/token` becomes `http://localhost:5173/accept/token`).
+
+**User:** OK, progress has been made but I've got some errors to go through later. Let's update the PR and issue, update the session log, and push the changes.
