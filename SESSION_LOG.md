@@ -585,3 +585,76 @@ Note on Fix 3 (stale dialog): ESLint blocked `setEmail('')` inside `useEffect` (
 Fixes committed (`0471bec`) and pushed to PR #5.
 
 **User:** update the session logs while I go review and approve
+
+**Claude:** Session 13 log complete. Committed `2cf0b9c` and pushed to PR #5.
+
+---
+
+## Session 14
+
+**User:** switch back to main, pull latest, and let's get started on US 3. Create the story for it using the same naming convention as you did for US2 and create a new branch for US3 as well.
+
+**Claude:** PR #5 had merged. Switched to main, pulled — fast-forward with all US2 files. Created GitHub issue [#6](https://github.com/tbithell/kanban/issues/6) — `story(001-us3): Invitee Accepts An Invitation And Signs In` — with labels `feature, spec/001-auth-onboarding`, full acceptance scenarios from spec, and T066–T073 reference. Created and pushed branch `001-us3-invitee-accepts-invitation`.
+
+**User:** `/speckit-implement` for US3 (T066–T073)
+
+**Claude:** Ran prerequisites check — FEATURE_DIR resolved, all checklists 16/16 complete ✅. Loaded tasks.md, plan.md, data-model.md, contracts/, research.md, constitution.
+
+**T066–T069 [RED commit `fbf5a88`]:**
+
+All failing tests written and committed before any implementation:
+
+- **T066** `InvitationServiceTests.cs` — 6 AcceptAsync unit tests: valid token + matching email → user created + InvitationAccepted event; expired token → NotFoundException; consumed token → NotFoundException; non-existent token → NotFoundException; email mismatch → BusinessRuleException; concurrent second call (TryConsume returns false) → NotFoundException. All RED (NotImplementedException stub thrown).
+- **T067** `InviteEndpointTests.cs` — 6 accept endpoint integration tests: 200 with CurrentUserDto; 410 expired; 410 consumed; 410 non-existent; 422 email mismatch; concurrent 20-request test (exactly 1 × 200, 19 × 410, DB has 1 user). All RED.
+- **T068** `AcceptInvitePage.test.tsx` — 5 RTL tests: unauthenticated renders sign-in link; authenticated auto-calls mutate with token; success navigates to /; 410 shows "no longer valid"; 422 shows "different email". All RED (placeholder component).
+- **T069** `InviteAcceptanceTests.spec.ts` — US3 Playwright e2e scenarios 1–6 added to file.
+
+Also in the RED commit: `IInvitationService.AcceptAsync` interface signature added; `InvitationService` stub (`throw new NotImplementedException`); `DomainExceptionHandler` updated to map `NotFoundException` with code `invite.invalid` → 410 Gone; `MapAcceptEndpoint` stub added to `InviteEndpoints`; `v1AuthGroup` (RequireAuthorization only, not RegisteredUser) added to `Program.cs`; `useAcceptInvite.ts` stub; `InsertInvitationWithRawTokenAsync` + `CountUsersForEmailAsync` helpers added to `KanbanWebAppFactory`; `TestPrincipals.UnregisteredGoogleUser(email, sub, displayName)` overload added.
+
+**GREEN implementation (in working tree, not yet committed):**
+
+Implemented `InvitationService.AcceptAsync`, `useAcceptInvite.ts`, `AcceptInvitePage.tsx`, and the accept endpoint handler. 67/67 unit tests pass. 33/34 integration tests pass.
+
+**The one remaining failing test and why:**
+
+`PostAcceptInvite_ConcurrentRequests_Exactly1Returns200AndNoDuplicateUsers` is failing (returns 1 × 200, 4–9 × 410 Gone, 10–15 × 500 instead of 1 × 200 and 19 × 410).
+
+Root cause chain — two issues discovered and partially resolved:
+
+1. **Microsoft.Data.Sqlite 10.0.8 enforces FK constraints by default** (confirmed via test: `PRAGMA foreign_keys` returns `1` on a freshly-opened connection, unlike older versions). The original `AcceptAsync` called `TryConsumeAsync` first, setting `consumed_by_user_id = newUserId` before the user row existed → `FOREIGN KEY constraint failed` → 500. Fix: split `TryConsumeAsync` into two steps — `TryConsumeAsync(tokenHash, consumedAt, tx)` sets only `consumed_at` as the atomic gate (no FK reference); `RecordConsumerAsync(tokenHash, consumedByUserId, tx)` sets `consumed_by_user_id` after `InsertAsync(user)` (FK now satisfied). Interface and SQL both updated. All existing InvitationRepository integration tests updated.
+
+2. **SQLITE_BUSY exhausting Polly retries under 20-way concurrency** — with 19 losing requests all retrying simultaneously, some exhaust the 3-attempt Polly policy (50ms + 100ms + 200ms backoff) before the write lock clears. Those return 500 (SqliteException hitting FallbackExceptionHandler) rather than 410. Added `PRAGMA busy_timeout = 5000` to the connection factory (makes SQLite internally wait up to 5 seconds for the write lock before returning SQLITE_BUSY to .NET), which improved the pass rate from ~4/19 to ~9/19 correct 410s but did not fully solve it.
+
+**State at end of session — for the next agent:**
+
+All changed files (listed below) are in the working tree only. Nothing committed to the GREEN branch yet.
+
+| File | Change |
+|------|--------|
+| `src/Kanban.Business/Interfaces/IInvitationService.cs` | AcceptAsync signature |
+| `src/Kanban.Business/Services/InvitationService.cs` | AcceptAsync implementation (TryConsume → Find → EmailMatch → InsertUser → RecordConsumer → AuditEvent → Commit) |
+| `src/Kanban.Api/ErrorHandling/DomainExceptionHandler.cs` | NotFoundException + code `invite.invalid` → 410 |
+| `src/Kanban.Api/Endpoints/InviteEndpoints.cs` | `MapAcceptEndpoint` (RequireAuthorization only, anonymous rate limit) |
+| `src/Kanban.Api/Program.cs` | v1AuthGroup + MapAcceptEndpoint + PRAGMA busy_timeout = 5000 on connection |
+| `src/Kanban.DataAccess/Interfaces/IInvitationRepository.cs` | TryConsumeAsync removes userId param; adds RecordConsumerAsync |
+| `src/Kanban.DataAccess/Repositories/InvitationRepository.cs` | Updated SQL; new RecordConsumerAsync |
+| `src/Kanban.Web/src/hooks/useAcceptInvite.ts` | Full hook implementation |
+| `src/Kanban.Web/src/pages/AcceptInvitePage.tsx` | Full page implementation |
+| `tests/unit/Business/InvitationServiceTests.cs` | 6 AcceptAsync tests updated to match new order |
+| `tests/integration/Api/InviteEndpointTests.cs` | 6 accept endpoint tests (concurrent test has diagnostic detail in assertion message) |
+| `tests/integration/Infrastructure/KanbanWebAppFactory.cs` | New helpers; UnregisteredGoogleUser derives sub from email |
+| `tests/integration/DataAccess/InvitationRepositoryTests.cs` | TryConsumeAsync calls updated (userId arg removed) |
+
+**Recommended next action:** Fix the concurrent test, then commit GREEN, then run all 4 test layers, then create PR.
+
+Proposed fix (Option A — increase Polly retries with jitter): Update `ResiliencePipeline RetryPolicy` in BOTH `InvitationService` and `AuthService`:
+```csharp
+MaxRetryAttempts = 20,
+Delay = TimeSpan.FromMilliseconds(50),
+BackoffType = DelayBackoffType.Exponential,
+UseJitter = true,
+```
+
+Alternative (Option B): Also add `PRAGMA journal_mode = WAL` to the connection setup, which allows concurrent reads and a single writer without full exclusive locks.
+
+**User:** ok, do these things for me. Explain the issue and save the session log.
