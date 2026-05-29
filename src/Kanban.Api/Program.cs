@@ -345,17 +345,16 @@ if (app.Environment.IsDevelopment())
 // ── Versioned API (v1) — endpoints registered in Endpoints/ ───────────────────
 
 var v1 = app.NewVersionedApi();
-var v1Group = v1.MapGroup("/api/v1")
+var v1RegisteredUserGroup = v1.MapGroup("/api/v1")
     .HasApiVersion(1, 0)
     .RequireAuthorization("RegisteredUser");
-AuthEndpoints.Map(v1Group);
-InviteEndpoints.Map(v1Group);
+AuthEndpoints.Map(v1RegisteredUserGroup);
+InviteEndpoints.Map(v1RegisteredUserGroup);
 
-// Invite acceptance requires Google auth but invitee is not yet a RegisteredUser
-var v1AuthGroup = v1.MapGroup("/api/v1")
+var v1GoogleAuthGroup = v1.MapGroup("/api/v1")
     .HasApiVersion(1, 0)
     .RequireAuthorization();
-InviteEndpoints.MapAcceptEndpoint(v1AuthGroup);
+InviteEndpoints.MapAcceptEndpoint(v1GoogleAuthGroup);
 
 app.Run();
 

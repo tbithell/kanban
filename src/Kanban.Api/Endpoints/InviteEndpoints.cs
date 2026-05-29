@@ -8,6 +8,7 @@ using Kanban.Contracts;
 using Kanban.Domain.Enums;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using CorsOptions = Kanban.Api.Options.CorsOptions;
 
@@ -22,6 +23,7 @@ public static class InviteEndpoints
                 string token,
                 HttpContext ctx,
                 IInvitationService invitationService,
+                ILoggerFactory loggerFactory,
                 CancellationToken ct) =>
             {
                 var googleEmail = ctx.User.FindFirst("email")?.Value;
@@ -34,17 +36,31 @@ public static class InviteEndpoints
                 var user = await invitationService.AcceptAsync(
                     token, googleEmail, googleSub, displayName!, ct);
 
-                var identity = new ClaimsIdentity(
-                    [
-                        new Claim("sub", googleSub),
-                        new Claim("email", user.Email),
-                        new Claim("user_id", user.Id.ToString()),
-                        new Claim("system_role", "standard"),
-                    ],
-                    CookieAuthenticationDefaults.AuthenticationScheme);
-                await ctx.SignInAsync(
-                    CookieAuthenticationDefaults.AuthenticationScheme,
-                    new ClaimsPrincipal(identity));
+                // AcceptAsync has committed — user is now a registered Standard user.
+                // Cookie issuance is best-effort: if it fails the user can sign in via
+                // the normal flow (/signin → Google → OnTicketReceived recognises them).
+                try
+                {
+                    var identity = new ClaimsIdentity(
+                        [
+                            new Claim("sub", googleSub),
+                            new Claim("email", user.Email),
+                            new Claim("user_id", user.Id.ToString()),
+                            new Claim("system_role", "standard"),
+                        ],
+                        CookieAuthenticationDefaults.AuthenticationScheme);
+                    await ctx.SignInAsync(
+                        CookieAuthenticationDefaults.AuthenticationScheme,
+                        new ClaimsPrincipal(identity));
+                }
+                catch (Exception ex)
+                {
+                    loggerFactory
+                        .CreateLogger("Kanban.Api.Endpoints.InviteEndpoints")
+                        .LogWarning(ex,
+                            "Cookie issuance failed for user {UserId} after acceptance; user can sign in via normal flow",
+                            user.Id);
+                }
 
                 return Results.Ok(UserTransforms.ToDto(user));
             })

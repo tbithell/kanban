@@ -76,15 +76,14 @@ public sealed class InvitationRepository : IInvitationRepository
     }
 
     public async Task<bool> TryConsumeAsync(
-        string tokenHash, Guid userId, DateTimeOffset consumedAt, IDbTransaction tx)
+        string tokenHash, DateTimeOffset consumedAt, IDbTransaction tx)
     {
         Verify.That(tokenHash).IsNotNull().IsNotEmpty();
-        Verify.That(userId).IsNotDefault();
         Verify.That(tx).IsNotNull();
 
         const string sql = """
             UPDATE invitations
-            SET consumed_at = @consumedAt, consumed_by_user_id = @userId
+            SET consumed_at = @consumedAt
             WHERE token_hash = @tokenHash
               AND consumed_at IS NULL
               AND expires_at > @now
@@ -93,12 +92,33 @@ public sealed class InvitationRepository : IInvitationRepository
         var rowsAffected = await _connection.ExecuteAsync(sql, new
         {
             consumedAt = consumedAt.ToString("o"),
-            userId = userId.ToString("D"),
             tokenHash,
             now = DateTimeOffset.UtcNow.ToString("o"),
         }, transaction: tx);
 
         return rowsAffected == 1;
+    }
+
+    public async Task RecordConsumerAsync(
+        string tokenHash, Guid consumedByUserId, IDbTransaction tx)
+    {
+        Verify.That(tokenHash).IsNotNull().IsNotEmpty();
+        Verify.That(consumedByUserId).IsNotDefault();
+        Verify.That(tx).IsNotNull();
+
+        const string sql = """
+            UPDATE invitations SET consumed_by_user_id = @consumedByUserId
+            WHERE token_hash = @tokenHash
+            """;
+
+        var rowsAffected = await _connection.ExecuteAsync(
+            sql,
+            new { tokenHash, consumedByUserId = consumedByUserId.ToString("D") },
+            transaction: tx);
+
+        if (rowsAffected == 0)
+            throw new InvalidOperationException(
+                "RecordConsumerAsync affected 0 rows — invitation record missing after successful TryConsumeAsync");
     }
 
     public async Task RefreshTokenAsync(Guid id, string newTokenHash, DateTimeOffset newExpiresAt,

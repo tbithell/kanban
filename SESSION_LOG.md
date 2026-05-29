@@ -676,3 +676,27 @@ Three fixes applied:
 **User:** So we are ready for a PR then, right?
 
 **Claude:** Marked T066–T073 [X] in tasks.md. Pushed branch and created PR #7 — [story(001-us3): Invitee Accepts An Invitation And Signs In](https://github.com/tbithell/kanban/pull/7). PR covers the full US3 implementation with all three test layers green and the concurrent acceptance test confirmed passing.
+
+---
+
+## Session 15
+
+**User:** `/speckit-git-validate @specs/001-auth-onboarding/plan.md has been properly implemented and review the most recent PR`
+
+**Claude:** Branch validation passed: `001-us3-invitee-accepts-invitation` matches sequential pattern; `specs/001-auth-onboarding` directory found. Ran `/code-review --pr 7` at high effort (3+4 angles × 6 candidates → verify → ≤10 findings). Three parallel finder agents (line-by-line/removed-behavior, cross-file/reuse/simplification/efficiency, altitude) surfaced 12 candidates. Two verifier agents confirmed/refuted each.
+
+**User:** yes fix all the findings and update the session logs
+
+**Claude:** One finding (rate limiter policy for accept endpoint) was **REFUTED against the constitution** — the spec table explicitly assigns the `anonymous` (per-IP, 10/min) policy to the accept endpoint, so no change was made.
+
+Four fixes applied:
+
+1. **BLOCK fixed** — `InviteEndpoints.cs`: wrapped `ctx.SignInAsync` in try/catch. `AcceptAsync` commits the user before `SignInAsync` is called; if cookie issuance fails, the user is already a registered Standard user and can recover via the normal sign-in flow (`/signin → Google → OnTicketReceived` recognises them by `sub`). Added `ILoggerFactory` parameter injection (static class prevents `ILogger<T>`) and logs a Warning on failure.
+
+2. **WARN fixed** — `InvitationRepository.cs:RecordConsumerAsync`: captures `rowsAffected` from `ExecuteAsync` and throws `InvalidOperationException` if 0 rows were updated. This is a programming-invariant violation (the record must exist because `TryConsumeAsync` just succeeded) — `FallbackExceptionHandler` maps it to 500 and logs internally.
+
+3. **NOTE fixed** — `KanbanWebAppFactory.cs`: added MAINTENANCE comment above the `RemoveAll + re-register` block explaining that every named policy in `Program.cs` must also appear here, and that a missing policy causes a runtime error on any endpoint using `.RequireRateLimiting`.
+
+4. **NOTE fixed** — `Program.cs`: renamed `v1Group` → `v1RegisteredUserGroup` and `v1AuthGroup` → `v1GoogleAuthGroup` so the auth requirement is self-documenting at the registration site and maintainers can't accidentally register an endpoint in the wrong group silently.
+
+All tests remain green: 67 unit ✅ + 34 integration ✅ + 24 RTL ✅

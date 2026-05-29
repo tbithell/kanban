@@ -59,6 +59,9 @@ public sealed class KanbanWebAppFactory : WebApplicationFactory<Program>
 
             // Replace production rate limits with permissive values so concurrency tests
             // are not interfered with by the rate limiter.
+            // MAINTENANCE: this block must enumerate every named policy defined in Program.cs.
+            // If a new policy is added there, add it here too — a missing policy causes a
+            // runtime error on any endpoint tagged with .RequireRateLimiting("new-policy").
             services.RemoveAll(typeof(IConfigureOptions<RateLimiterOptions>));
             services.Configure<RateLimiterOptions>(opts =>
             {
