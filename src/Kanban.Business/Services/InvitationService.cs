@@ -2,7 +2,6 @@ using System.Data;
 using Kanban.Business.Interfaces;
 using Kanban.Business.Transforms;
 using Kanban.Contracts;
-using Kanban.DataAccess.Extensions;
 using Kanban.DataAccess.Interfaces;
 using Kanban.Domain;
 using Kanban.Domain.Entities;
@@ -22,6 +21,7 @@ public sealed class InvitationService : IInvitationService
     private readonly IInvitationRepository _invitationRepository;
     private readonly IAuthEventRepository _authEventRepository;
     private readonly IDbConnection _dbConnection;
+    private readonly IDbConnectionFactory _transactionFactory;
     private readonly ILogger<InvitationService> _logger;
 
     private static readonly ResiliencePipeline RetryPolicy =
@@ -42,17 +42,20 @@ public sealed class InvitationService : IInvitationService
         IInvitationRepository invitationRepository,
         IAuthEventRepository authEventRepository,
         IDbConnection dbConnection,
+        IDbConnectionFactory transactionFactory,
         ILogger<InvitationService> logger)
     {
         Verify.That(userRepository).IsNotNull();
         Verify.That(invitationRepository).IsNotNull();
         Verify.That(authEventRepository).IsNotNull();
         Verify.That(dbConnection).IsNotNull();
+        Verify.That(transactionFactory).IsNotNull();
         Verify.That(logger).IsNotNull();
         _userRepository = userRepository;
         _invitationRepository = invitationRepository;
         _authEventRepository = authEventRepository;
         _dbConnection = dbConnection;
+        _transactionFactory = transactionFactory;
         _logger = logger;
     }
 
@@ -72,7 +75,7 @@ public sealed class InvitationService : IInvitationService
 
         return await RetryPolicy.ExecuteAsync(async ct =>
         {
-            using var tx = _dbConnection.BeginDeferredTransaction();
+            using var tx = _transactionFactory.BeginDeferredTransaction(_dbConnection);
             try
             {
                 var existing = await _invitationRepository.FindActiveByEmailAsync(email, tx);
@@ -84,14 +87,8 @@ public sealed class InvitationService : IInvitationService
                         existing.Id, refreshToken.Hash, newExpiry, tx);
                     tx.Commit();
                     _logger.LogInformation(
-                        "Active invitation for {Email} refreshed by {IssuedByUserId}", email, issuedByUserId);
-                    var refreshedResponse = new IssueInviteResponse
-                    {
-                        Token = refreshToken.Raw,
-                        RedemptionLink = $"{frontendBaseUrl}/accept/{refreshToken.Raw}",
-                        ExpiresAt = newExpiry,
-                    };
-                    return (refreshedResponse, false);
+                        "Active invitation refreshed by {IssuedByUserId}", issuedByUserId);
+                    return (InvitationTransforms.ToResponse(refreshToken.Raw, newExpiry, frontendBaseUrl), false);
                 }
 
                 var registeredUser = await _userRepository.FindByEmailAsync(email, tx);
@@ -124,7 +121,7 @@ public sealed class InvitationService : IInvitationService
                 tx.Commit();
 
                 _logger.LogInformation(
-                    "Invitation issued by {IssuedByUserId} for {Email}", issuedByUserId, email);
+                    "Invitation issued by {IssuedByUserId}", issuedByUserId);
 
                 return (InvitationTransforms.ToResponse(invitation, token.Raw, frontendBaseUrl), true);
             }

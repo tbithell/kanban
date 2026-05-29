@@ -46,7 +46,8 @@ public static class InviteEndpoints
                     : SystemRole.Standard;
 
                 var frontendBaseUrl = corsOptions.Value.AllowedOrigins.FirstOrDefault()
-                    ?? "http://localhost:5173";
+                    ?? throw new InvalidOperationException(
+                        "Cors:AllowedOrigins must contain at least one entry.");
 
                 var (response, isNew) = await invitationService.IssueAsync(
                     request.Email,

@@ -9,7 +9,7 @@ import {
   makeStyles,
   tokens,
 } from '@fluentui/react-components'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { type IssueInviteError, useIssueInvite } from '../../hooks/useIssueInvite'
 
 const useStyles = makeStyles({
@@ -34,7 +34,11 @@ interface InviteUserDialogProps {
 export default function InviteUserDialog({ open, onDismiss }: InviteUserDialogProps) {
   const styles = useStyles()
   const [email, setEmail] = useState('')
-  const { mutate, data, error, isPending } = useIssueInvite()
+  const { mutate, data, error, isPending, reset } = useIssueInvite()
+
+  useEffect(() => {
+    if (!open) reset()
+  }, [open, reset])
 
   if (!open) return null
 
@@ -42,6 +46,11 @@ export default function InviteUserDialog({ open, onDismiss }: InviteUserDialogPr
 
   const handleSubmit = () => {
     if (email.trim()) mutate(email.trim())
+  }
+
+  const handleDismiss = () => {
+    setEmail('')
+    onDismiss()
   }
 
   return (
@@ -88,7 +97,7 @@ export default function InviteUserDialog({ open, onDismiss }: InviteUserDialogPr
           Send Invitation
         </Button>
 
-        <Button appearance="secondary" onClick={onDismiss}>
+        <Button appearance="secondary" onClick={handleDismiss}>
           Close
         </Button>
       </div>

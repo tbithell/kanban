@@ -23,8 +23,14 @@ public sealed class InvitationServiceTests
         var connection = new SqliteConnection("Data Source=:memory:");
         connection.Open();
         return new InvitationService(
-            userRepo, invitationRepo, authEventRepo, connection,
+            userRepo, invitationRepo, authEventRepo, connection, new FakeDbConnectionFactory(),
             NullLogger<InvitationService>.Instance);
+    }
+
+    private sealed class FakeDbConnectionFactory : IDbConnectionFactory
+    {
+        public IDbTransaction BeginDeferredTransaction(IDbConnection connection)
+            => connection.BeginTransaction();
     }
 
     [Fact]

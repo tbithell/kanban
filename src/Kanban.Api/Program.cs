@@ -13,6 +13,7 @@ using FluentValidation;
 using Kanban.Business.Interfaces;
 using Kanban.Business.Services;
 using Kanban.Api.Endpoints;
+using Kanban.Api.Infrastructure;
 using Kanban.Api.Validators;
 using Kanban.DataAccess;
 using Kanban.DataAccess.Interfaces;
@@ -105,6 +106,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
+builder.Services.AddSingleton<IDbConnectionFactory, SqliteConnectionFactory>();
 builder.Services.AddScoped<GoogleIdentityAdapter>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthEventRepository, AuthEventRepository>();

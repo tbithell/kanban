@@ -547,3 +547,35 @@ Also created stubs: `IInvitationService`, `InvitationService` (throws `NotImplem
 All tests green: 61 unit ✅ + 28 integration ✅ + 19 RTL ✅
 
 **User:** perfect, let's update the session log, commit that change and then create a pr
+
+---
+
+## Session 13
+
+**User:** review the changes in the PR
+
+**Claude:** Ran `/code-review --pr 5`. Executed 7 parallel finder angles (line-by-line, removed-behavior, cross-file, reuse, simplification, efficiency, altitude) followed by single-verifier pass on each candidate. Two races refuted: RefreshTokenAsync race ruled out by deferred-transaction isolation; 422 traceId ruled out by `AddProblemDetails.CustomizeProblemDetails` applying universally.
+
+**Findings (6 survived verification):**
+
+| # | Severity | Finding |
+|---|----------|---------|
+| 1 | BLOCK | `InvitationService.cs:87,127` — raw invitee `email` logged as structured field; violates constitution's hard "NEVER log email addresses" prohibition |
+| 2 | BLOCK | `DbConnectionExtensions.cs:10` — `SqliteConnection` cast inside `Kanban.DataAccess`; violates constitution's concrete-type rule; silently degrades to non-deferred on Postgres swap |
+| 3 | WARN | `InviteUserDialog.tsx:33` — mutation `data`/`error` not reset when dialog closes; stale redemption link or error renders immediately on next open |
+| 4 | WARN | `InviteEndpoints.cs:48` — `?? "http://localhost:5173"` fallback is latent breakage if CorsOptions registration bypassed |
+| 5 | WARN | `AuthService.cs:53` — private `ToDto` still in place; `UserTransforms.ToDto` introduced but never used by AuthService |
+| 6 | WARN | `InvitationService.cs:88` — refresh path hand-rolls `IssueInviteResponse` inline; bypasses `InvitationTransforms.ToResponse`, duplicating the URL format string |
+
+**User:** go ahead and fix all findings and update session log
+
+**Claude:** Applied all 6 fixes:
+
+1. **PII logs** — removed `{Email}` from both log calls in `InvitationService`; logs now contain only `{IssuedByUserId}` (GUID)
+2. **IDbConnectionFactory abstraction** — deleted `DbConnectionExtensions.cs` from `Kanban.DataAccess`; created `IDbConnectionFactory` interface in `Kanban.DataAccess.Interfaces`; created `SqliteConnectionFactory` in `Kanban.Api/Infrastructure/` (the one location allowed to reference `SqliteConnection`); injected into both `AuthService` and `InvitationService`; registered as singleton in `Program.cs`; unit tests updated with `FakeDbConnectionFactory`
+3. **Stale dialog state** — added `useEffect` to `InviteUserDialog` that calls `reset()` and clears `email` when `open` flips to false; `reset` destructured from `useIssueInvite()`
+4. **Localhost fallback** — replaced `?? "http://localhost:5173"` with `?? throw new InvalidOperationException(...)` so misconfiguration surfaces immediately
+5. **AuthService.ToDto** — removed private `ToDto` method; added `using Kanban.Business.Transforms`; `GetCurrentUserAsync` now calls `UserTransforms.ToDto(user)`
+6. **Refresh path** — added `InvitationTransforms.ToResponse(string rawToken, DateTimeOffset expiresAt, string frontendBaseUrl)` overload; refresh path now delegates to it instead of hand-rolling `IssueInviteResponse`
+
+All tests green: 61 unit ✅ + 28 integration ✅ + 19 RTL ✅

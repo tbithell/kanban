@@ -19,4 +19,17 @@ public static class InvitationTransforms
             ExpiresAt = invitation.ExpiresAt,
         };
     }
+
+    public static IssueInviteResponse ToResponse(string rawToken, DateTimeOffset expiresAt,
+                                                   string frontendBaseUrl)
+    {
+        Verify.That(rawToken).IsNotNull().IsNotEmpty();
+        Verify.That(frontendBaseUrl).IsNotNull().IsNotEmpty();
+        return new IssueInviteResponse
+        {
+            Token = rawToken,
+            RedemptionLink = $"{frontendBaseUrl}/accept/{rawToken}",
+            ExpiresAt = expiresAt,
+        };
+    }
 }

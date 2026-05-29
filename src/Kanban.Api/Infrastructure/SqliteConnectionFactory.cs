@@ -1,11 +1,12 @@
 using System.Data;
+using Kanban.DataAccess.Interfaces;
 using Microsoft.Data.Sqlite;
 
-namespace Kanban.DataAccess.Extensions;
+namespace Kanban.Api.Infrastructure;
 
-public static class DbConnectionExtensions
+internal sealed class SqliteConnectionFactory : IDbConnectionFactory
 {
-    public static IDbTransaction BeginDeferredTransaction(this IDbConnection connection)
+    public IDbTransaction BeginDeferredTransaction(IDbConnection connection)
     {
         if (connection is SqliteConnection sqlite)
             return sqlite.BeginTransaction(deferred: true);
