@@ -658,3 +658,17 @@ UseJitter = true,
 Alternative (Option B): Also add `PRAGMA journal_mode = WAL` to the connection setup, which allows concurrent reads and a single writer without full exclusive locks.
 
 **User:** ok, do these things for me. Explain the issue and save the session log.
+
+**Claude:** Applied both Option A (Polly retries) and Option B (WAL journal mode), then ran the concurrent test — still failing, but with a different count each run (4 Gone one run, 9 the next). The non-determinism pointed away from pure SQLite contention and toward a second, independent issue.
+
+Root cause of the variability: the `anonymous` rate limiter in `Program.cs` was configured as a **global** fixed-window limiter with `PermitLimit = 10`. All 20 concurrent test requests competed for the same global bucket, so exactly 10 (or fewer, due to concurrency in the limiter itself) were rejected with 429 Too Many Requests instead of reaching the SQLite layer at all. The test assertion only checked for 200 and 410, so the 429s showed up as the unexplained shortfall.
+
+Three fixes applied:
+
+1. **`Program.cs`** — fixed the `anonymous` rate limiter from a global fixed-window to a **per-IP partitioned** fixed-window (as the constitution mandates: "10 requests / minute per IP"). Added `using System.Threading.RateLimiting;` to support `RateLimitPartition.GetFixedWindowLimiter`.
+
+2. **`KanbanWebAppFactory.cs`** — added a `ConfigureServices` override that removes the production rate limiter options (`RemoveAll(typeof(IConfigureOptions<RateLimiterOptions>))`) and re-registers all three policies ("anonymous", "authenticated", "mutating") with `PermitLimit = 10_000`. Test correctness should come from DB behaviour, not from an artificially low rate limit. Added `using Microsoft.AspNetCore.Http`, `using Microsoft.AspNetCore.RateLimiting`, `using Microsoft.Extensions.DependencyInjection.Extensions`.
+
+3. **`InvitationService.cs` + `AuthService.cs`** — both Polly retry policies bumped to `MaxRetryAttempts = 20` with `UseJitter = true` (kept from earlier in this session; the WAL + busy_timeout changes are also still in place).
+
+**Result: 67 unit ✅ + 34 integration ✅ + 24 RTL ✅ — all green including the concurrent test.**

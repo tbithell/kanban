@@ -7,8 +7,11 @@ using Dapper;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -53,6 +56,31 @@ public sealed class KanbanWebAppFactory : WebApplicationFactory<Program>
             })
             .AddScheme<TestAuthHandlerOptions, TestAuthenticationHandler>(
                 TestAuthenticationHandler.SchemeName, null);
+
+            // Replace production rate limits with permissive values so concurrency tests
+            // are not interfered with by the rate limiter.
+            services.RemoveAll(typeof(IConfigureOptions<RateLimiterOptions>));
+            services.Configure<RateLimiterOptions>(opts =>
+            {
+                opts.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                opts.AddFixedWindowLimiter("anonymous", o =>
+                {
+                    o.PermitLimit = 10_000;
+                    o.Window = TimeSpan.FromMinutes(1);
+                });
+                opts.AddSlidingWindowLimiter("authenticated", o =>
+                {
+                    o.PermitLimit = 10_000;
+                    o.Window = TimeSpan.FromMinutes(1);
+                    o.SegmentsPerWindow = 6;
+                });
+                opts.AddSlidingWindowLimiter("mutating", o =>
+                {
+                    o.PermitLimit = 10_000;
+                    o.Window = TimeSpan.FromMinutes(1);
+                    o.SegmentsPerWindow = 6;
+                });
+            });
         });
     }
 
@@ -223,11 +251,11 @@ public static class TestPrincipals
 
     public static ClaimsPrincipal UnregisteredGoogleUser(
         string email,
-        string googleSub = "unregistered-google-sub",
+        string? googleSub = null,
         string displayName = "Test Invitee") =>
         new(new ClaimsIdentity(
             [
-                new Claim("sub", googleSub),
+                new Claim("sub", googleSub ?? $"google-sub-{email}"),
                 new Claim("email", email),
                 new Claim("name", displayName),
             ],

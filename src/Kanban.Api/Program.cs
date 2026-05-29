@@ -25,6 +25,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
 using NetEscapades.AspNetCore.SecurityHeaders;
@@ -66,6 +67,9 @@ builder.Services.AddScoped<IDbConnection>(sp =>
     var opts = sp.GetRequiredService<IOptions<ConnectionStringOptions>>().Value;
     var conn = new SqliteConnection(opts.Kanban);
     conn.Open();
+    using var cmd = conn.CreateCommand();
+    cmd.CommandText = "PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;";
+    cmd.ExecuteNonQuery();
     return conn;
 });
 
@@ -207,11 +211,14 @@ builder.Services.AddRateLimiter(opts =>
             .ExecuteAsync(ctx.HttpContext);
     };
 
-    opts.AddFixedWindowLimiter("anonymous", o =>
-    {
-        o.PermitLimit = 10;
-        o.Window = TimeSpan.FromMinutes(1);
-    });
+    opts.AddPolicy("anonymous", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+            }));
 
     opts.AddSlidingWindowLimiter("authenticated", o =>
     {
