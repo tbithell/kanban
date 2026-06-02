@@ -1,0 +1,286 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  # ── Fast-fail gate ────────────────────────────────────────────────────────────
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Build .NET solution
+        run: dotnet build Kanban.slnx --configuration Release
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/Kanban.Web/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: src/Kanban.Web
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: src/Kanban.Web
+
+  # ── Unit tests ────────────────────────────────────────────────────────────────
+  test-unit:
+    name: test/unit
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Run unit tests
+        run: dotnet test tests/unit/ --logger "trx;LogFileName=test-results.trx"
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: unit-test-results
+          path: tests/unit/TestResults/
+          retention-days: 14
+
+  # ── Integration tests (SQLite) ────────────────────────────────────────────────
+  # KanbanWebAppFactory supplies all config overrides in-process — no secrets needed here.
+  test-integration:
+    name: test/integration
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Run integration tests
+        run: dotnet test tests/integration/ --logger "trx;LogFileName=test-results.trx"
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: integration-test-results
+          path: tests/integration/TestResults/
+          retention-days: 14
+
+  # ── RTL component tests ───────────────────────────────────────────────────────
+  test-component:
+    name: test/component
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/Kanban.Web/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: src/Kanban.Web
+
+      - name: Run component tests
+        run: npm test -- --run
+        working-directory: src/Kanban.Web
+
+  # ── Playwright e2e tests ──────────────────────────────────────────────────────
+  # The API runs as a background process with Development environment so the
+  # /api/v1/dev/* endpoints are registered. PLAYWRIGHT_AUTH_BYPASS=true routes all
+  # auth setup through those dev endpoints — no real Google OAuth round-trip occurs.
+  # GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET must be non-empty (ValidateOnStart) but
+  # can be any placeholder string; real credentials are never exchanged in bypass mode.
+  test-e2e:
+    name: test/e2e
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://localhost:5077
+      Authentication__Google__ClientId: ${{ secrets.GOOGLE_CLIENT_ID }}
+      Authentication__Google__ClientSecret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      ConnectionStrings__Kanban: Data Source=kanban-e2e.db
+      Seed__AdminEmail: admin@test.local
+      Cors__AllowedOrigins__0: http://localhost:5173
+      PLAYWRIGHT_AUTH_BYPASS: 'true'
+      API_BASE_URL: http://localhost:5077
+      WEB_BASE_URL: http://localhost:5173
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            src/Kanban.Web/package-lock.json
+            tests/e2e/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: src/Kanban.Web
+
+      - name: Install e2e dependencies
+        run: npm ci
+        working-directory: tests/e2e
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: tests/e2e
+
+      - name: Build API
+        run: dotnet build src/Kanban.Api --configuration Release
+
+      - name: Start API
+        run: dotnet run --project src/Kanban.Api --configuration Release --no-build &
+
+      - name: Wait for API to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:5077/health/live; then
+              echo " — API ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API did not become ready within 60 s"
+          exit 1
+
+      - name: Run Playwright tests
+        run: npm run test:e2e
+        working-directory: tests/e2e
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: |
+            tests/e2e/playwright-report/
+            tests/e2e/test-results/
+          retention-days: 14
+
+  # ── Secret scanning ───────────────────────────────────────────────────────────
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── Snyk SCA (dependency vulnerabilities + licence) ───────────────────────────
+  snyk-sca:
+    name: snyk/sca
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore .NET dependencies
+        run: dotnet restore Kanban.slnx
+
+      - name: Snyk SCA — .NET
+        uses: snyk/actions/dotnet@master
+        with:
+          args: --severity-threshold=medium --file=Kanban.slnx
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/Kanban.Web/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: src/Kanban.Web
+
+      - name: Snyk SCA — frontend
+        uses: snyk/actions/node@master
+        with:
+          args: --severity-threshold=medium --file=src/Kanban.Web/package.json
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+  # ── Snyk SAST (code-level security issues) ───────────────────────────────────
+  snyk-sast:
+    name: snyk/sast
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Snyk SAST
+        uses: snyk/actions/node@master
+        with:
+          command: code test
+          args: --severity-threshold=medium
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
