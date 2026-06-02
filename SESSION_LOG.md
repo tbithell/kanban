@@ -1623,3 +1623,119 @@ Verified `npm run build` passes, committed and pushed.
 
 **User:** /session-update
 
+---
+
+## Session 26
+
+**User:** ok it's time to create the rest of the specs /speckit-specify we've knocked out the auth, we need to spec out the rest of the kanban application now. The repo is already specified, so no need to do that again.
+
+**Claude:** Running `/speckit-specify` for the remaining Kanban core features: board management, lane management, card management, board membership/invites, and drag-and-drop reordering.
+
+*[Ran setup script, read spec template, read existing 001 spec for context, read constitution]*
+
+Created `specs/002-kanban-core/spec.md` with the following structure:
+
+**Feature**: Kanban Core — Board, Lane, Card & Membership Management
+
+**User Stories (5):**
+- US1: Board Management — admin creates and manages boards; users see their member boards
+- US2: Card Management — owners and members create, edit, move, and delete cards
+- US3: Drag-and-Drop Reordering — mouse and keyboard drag of cards between lanes and lanes within board
+- US4: Board Membership & Invites — board owners and admins invite users to specific boards with roles (Owner, Member, Viewer)
+- US5: Role-Based Access — viewers can read but not modify; members can create/update/delete cards; owners can do everything on their board
+
+**Key Entities:** Board, Lane, Card, BoardMember (Owner/Member/Viewer roles), CardAssignee
+
+**26 Functional Requirements** covering: board CRUD, lane CRUD with ordering, card CRUD with ordering, cross-lane card moves, board membership management, board-scoped invitations that extend the 001 invitation mechanism, role enforcement at each operation level
+
+**10 Success Criteria** including: board loads in <3s for 10 lanes × 50 cards, drag move feedback <100ms, server confirms move <2s, keyboard DnD works, WCAG AA accessibility, concurrent move conflicts return explicit error
+
+**Assumptions** section documenting: board names globally unique, lane names unique per board, card titles not unique, invitations extend the 001 token mechanism, admin auto-gets Owner role on created board
+
+Created `specs/002-kanban-core/checklists/requirements.md` — all 16 quality checklist items pass.
+
+Updated `.specify/feature.json` to point to `specs/002-kanban-core`.
+
+**User:** `/speckit-plan 002-kanban-core`
+
+**Claude:** Running the full planning workflow for `002-kanban-core`.
+
+*[Read: spec.md, constitution.md, plan.md template, existing InvitationService.cs, User.cs, InviteEndpoints.cs, KanbanException.cs, 001_initial_schema.sql, Program.cs for established patterns]*
+
+**Phase 0 — Research (8 decisions):**
+
+1. **Position management**: Integer gapless positions with batch UPDATE shift inside a deferred transaction. Batch shift on every create, reorder, and delete. Rejected fractional/gap-based indexing (adds complexity without benefit at MVP scale).
+
+2. **Optimistic concurrency for moves**: `version` INTEGER column on `lanes` and `cards`. Move requests include `expectedVersion`; `UPDATE … WHERE version = @expected` returning 0 rows → 409 Conflict. Polly retries SQLITE_BUSY only — version mismatch is a deterministic conflict, not retried.
+
+3. **Board-scoped invitations**: Extend the existing `invitations` table with nullable `board_id` and `board_role` columns (Migration 004). `InvitationService.AcceptAsync` extended to inject `IBoardMemberRepository` and create the `board_members` record within the same deferred transaction when `board_id` is set. Documented as justified SOLID trade-off in Complexity Tracking.
+
+4. **Board data loading**: Single LEFT JOIN query (boards→lanes→cards) in `BoardRepository.FindBoardWithLanesAndCardsAsync`. One query per board load; Dapper multi-row mapping assembles the object graph. Avoids N+1; meets the <3s performance target.
+
+5. **dnd-kit architecture**: `PointerSensor` + `KeyboardSensor` on single `DndContext` at board level. `DragOverlay` rendered at root to avoid Fluent UI portal stacking context conflicts. `onDragEnd` dispatches to `useMoveLane` or `useMoveCard` depending on active item type. Keyboard: Space to pick up, arrow keys to move, Space to drop, Escape to cancel.
+
+6. **Resource-based authorization**: `BoardOperations` static class + `BoardMembershipRequirement` + `BoardAuthorizationHandler`. Handler resolves caller's board role from DB via `IBoardMemberRepository`. Enforced in Business layer via `IAuthorizationService.AuthorizeAsync` — never in endpoint handlers. Enumeration prevention: `FindBoardForMemberAsync` returns null for non-members → always 404.
+
+7. **`board_id` denormalized on `cards`**: Membership checks for card operations need `board_id` without a JOIN through lanes. Denormalization avoids per-card JOIN in boards with many cards.
+
+8. **ON DELETE CASCADE**: boards→lanes→cards; boards→board_members. Enabled via `PRAGMA foreign_keys = ON` already set in `SqliteConnectionFactory`.
+
+**Phase 1 — Design artifacts created:**
+
+**`specs/002-kanban-core/data-model.md`** — Domain entity C# signatures with `Verify.That` parameter checks for `Board`, `Lane`, `Card`, `BoardMember`. Migration 003 SQL (boards, board_members, lanes, cards, card_assignees tables with indexes and unique constraints). Migration 004 SQL (two nullable columns on invitations). Position reorder SQL example with optimistic lock. `BoardRole` enum: Owner, Member, Viewer.
+
+**`specs/002-kanban-core/contracts/endpoints.md`** — 15 new endpoints + extended accept:
+- `GET/POST /api/v1/boards`
+- `GET/DELETE /api/v1/boards/{boardId}`
+- `POST/PATCH/DELETE /api/v1/boards/{boardId}/lanes/{laneId}`
+- `POST /api/v1/boards/{boardId}/lanes/{laneId}/move`
+- `POST /api/v1/boards/{boardId}/lanes/{laneId}/cards`
+- `PATCH/DELETE /api/v1/boards/{boardId}/cards/{cardId}`
+- `POST /api/v1/boards/{boardId}/cards/{cardId}/move`
+- `GET /api/v1/boards/{boardId}/members`
+- `POST /api/v1/boards/{boardId}/invites`
+- `PATCH/DELETE /api/v1/boards/{boardId}/members/{userId}`
+- `POST /api/v1/invites/{token}/accept` (extended — now returns `AcceptInviteResponseDto`)
+
+**`specs/002-kanban-core/contracts/dtos.md`** — All request and response DTOs with FluentValidation rules. `AcceptInviteResponseDto` wraps `CurrentUserDto` + nullable `Guid? BoardId` for frontend redirect. `BoardRoleDto` enum mirrors domain `BoardRole`. Transform class locations documented.
+
+**`specs/002-kanban-core/quickstart.md`** — Prerequisites (001 complete + dnd-kit packages), `npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities`, migration instructions, first-board walkthrough, invite-member walkthrough, test commands, 11-item verified feature checklist.
+
+**`specs/002-kanban-core/plan.md`** — Complete implementation plan:
+
+*Constitution Check (17 gates, all PASS)* — dnd-kit promoted from category (b) to (a) because drag-and-drop is P1; justification entered in Complexity Tracking.
+
+*Project Structure* — 50+ new source files across all 8 projects:
+- `Kanban.Api`: `BoardOperations.cs`, `BoardMembershipRequirement.cs`, `BoardAuthorizationHandler.cs`, `BoardEndpoints.cs`, `LaneEndpoints.cs`, `CardEndpoints.cs`, `BoardMemberEndpoints.cs`
+- `Kanban.Web/src`: 14 new components, 16 new custom hooks
+- `Kanban.Business`: `BoardService`, `LaneService`, `CardService`, `BoardMembershipService` + interfaces + transforms
+- `Kanban.Domain`: `Board`, `Lane`, `Card`, `BoardMember`, `CardAssignee` entities + `BoardRole` enum
+- `Kanban.Contracts`: 15 new request/response DTOs
+- `Kanban.Data`: 4 migration scripts (003/004 for SQLite and Postgres)
+- `Kanban.DataAccess`: `BoardRepository`, `LaneRepository`, `CardRepository`, `BoardMemberRepository` + interfaces
+
+*Test plan*: 40 unit/integration/e2e/component tests across `BoardServiceTests`, `LaneServiceTests`, `CardServiceTests`, `BoardMembershipServiceTests`, 4 endpoint test files, 4 e2e test files, 6 RTL component test files + 4 test data builders.
+
+*Complexity Tracking (4 entries)*: dnd-kit promoted to MVP; InvitationService + IBoardMemberRepository injection; board_id denormalized on cards; BoardAuthorizationHandler injects IBoardMemberRepository.
+
+*Post-Phase-1 re-check (12 gates, all PASS)*.
+
+`CLAUDE.md` updated to reference `@specs/002-kanban-core/plan.md`. `.specify/feature.json` updated to `specs/002-kanban-core`.
+
+---
+
+All 8 artifacts in place. Planning is complete.
+
+**Branch**: `002-kanban-core` | **Plan**: `specs/002-kanban-core/plan.md`
+
+**Key architectural decisions:**
+- **Concurrency**: `version` column on cards and lanes; move requests include `expectedVersion`; mismatch → 409 (not a Polly retry)
+- **Board invitations**: extend `invitations` table with nullable `board_id`/`board_role`; `InvitationService.AcceptAsync` creates `BoardMember` in the same atomic transaction
+- **Enumeration prevention**: `FindBoardForMemberAsync` returns null for non-members → always 404, never 403
+- **DnD**: single `DndContext` at board level; `onDragEnd` dispatches to `useMoveLane` or `useMoveCard`; TanStack Query optimistic update with snapshot rollback
+
+**User:** /compact (context compaction)
+
+**User:** /session-update
+
+---
