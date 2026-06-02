@@ -181,8 +181,6 @@ public sealed class InvitationService : IInvitationService
                     lastSignInAt: null);
 
                 await _userRepository.InsertAsync(user, tx);
-
-                // FK constraint satisfied now that the user row exists
                 await _invitationRepository.RecordConsumerAsync(tokenHash, newUserId, tx);
 
                 var authEvent = new AuthEvent(

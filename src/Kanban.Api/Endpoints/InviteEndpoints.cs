@@ -56,7 +56,7 @@ public static class InviteEndpoints
                 catch (Exception ex)
                 {
                     loggerFactory
-                        .CreateLogger("Kanban.Api.Endpoints.InviteEndpoints")
+                        .CreateLogger(typeof(InviteEndpoints).FullName!)
                         .LogWarning(ex,
                             "Cookie issuance failed for user {UserId} after acceptance; user can sign in via normal flow",
                             user.Id);
