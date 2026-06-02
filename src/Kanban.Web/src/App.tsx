@@ -6,11 +6,11 @@ import NotRegisteredPage from './pages/NotRegisteredPage'
 import AcceptInvitePage from './pages/AcceptInvitePage'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { isLoading, isUnauthenticated, isNotRegistered } = useCurrentUser()
+  const { isLoading, isUnauthenticated, isNotRegistered, isError } = useCurrentUser()
 
   if (isLoading) return null
-  if (isUnauthenticated) return <Navigate to="/signin" replace />
   if (isNotRegistered) return <Navigate to="/not-registered" replace />
+  if (isUnauthenticated || isError) return <Navigate to="/signin" replace />
 
   return <>{children}</>
 }

@@ -70,11 +70,10 @@ internal static class DevEndpoints
                 IDbConnection db) =>
             {
                 var adminId = await db.QuerySingleOrDefaultAsync<string>(
-                    "SELECT id FROM users WHERE email = @email",
-                    new { email = request.AdminEmail });
+                    "SELECT id FROM users WHERE system_role = 'Admin' LIMIT 1");
 
                 if (adminId is null)
-                    return Results.NotFound($"Admin '{request.AdminEmail}' not found in database");
+                    return Results.NotFound("No admin user found in database");
 
                 var (rawToken, tokenHash) = GenerateToken();
                 var now = DateTimeOffset.UtcNow;
@@ -118,6 +117,5 @@ internal static class DevEndpoints
 
 internal sealed record DevSeedInvitationRequest(
     string Email,
-    string AdminEmail,
     double? ExpiresInDays = null,
     bool Consumed = false);

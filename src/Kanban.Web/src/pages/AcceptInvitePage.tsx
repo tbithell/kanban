@@ -8,7 +8,7 @@ import {
   makeStyles,
   tokens,
 } from '@fluentui/react-components'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { type AcceptInviteError, useAcceptInvite } from '../hooks/useAcceptInvite'
@@ -30,20 +30,19 @@ export default function AcceptInvitePage() {
   const styles = useStyles()
   const { token } = useParams<{ token: string }>()
   const navigate = useNavigate()
-  const { isUnauthenticated } = useCurrentUser()
-  const { mutate, data, error, isPending } = useAcceptInvite()
+  const { isLoading, isUnauthenticated } = useCurrentUser()
+  const { mutateAsync, error } = useAcceptInvite()
+  const hasAttempted = useRef(false)
 
   useEffect(() => {
-    if (!isUnauthenticated && token && !data && !error && !isPending) {
-      mutate(token)
+    if (hasAttempted.current) return
+    if (!isLoading && !isUnauthenticated && token) {
+      hasAttempted.current = true
+      mutateAsync(token)
+        .then(() => navigate('/'))
+        .catch(() => {})
     }
-  }, [isUnauthenticated, token, data, error, isPending, mutate])
-
-  useEffect(() => {
-    if (data) {
-      navigate('/')
-    }
-  }, [data, navigate])
+  }, [isLoading, isUnauthenticated, token, mutateAsync, navigate])
 
   const acceptError = error as AcceptInviteError | null
 
@@ -64,7 +63,7 @@ export default function AcceptInvitePage() {
         )}
 
         {acceptError?.status === 410 && (
-          <MessageBar intent="error">
+          <MessageBar intent="error" role="alert">
             <MessageBarBody>
               This invitation is no longer valid. Please request a new one.
             </MessageBarBody>
@@ -72,7 +71,7 @@ export default function AcceptInvitePage() {
         )}
 
         {acceptError?.status === 422 && (
-          <MessageBar intent="error">
+          <MessageBar intent="error" role="alert">
             <MessageBarBody>
               This invitation was issued to a different email address.
             </MessageBarBody>

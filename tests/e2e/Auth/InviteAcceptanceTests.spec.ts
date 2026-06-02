@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import {
   ADMIN_AUTH, INVITEE_AUTH,
   API_BASE, WEB_BASE,
-  ADMIN_EMAIL, INVITEE_EMAIL,
+  INVITEE_EMAIL,
 } from '../auth.helpers'
 
 // ── US2: Admin issues an invitation ──────────────────────────────────────────
@@ -49,7 +49,7 @@ test.describe('US3: Invitee accepts an invitation', () => {
     const uniqueEmail = `invitee-${Date.now()}@example.com`
 
     const seedResp = await request.post(`${API_BASE}/api/v1/dev/seed/invitation`, {
-      data: { email: uniqueEmail, adminEmail: ADMIN_EMAIL },
+      data: { email: uniqueEmail },
     })
     expect(seedResp.ok()).toBeTruthy()
     const { token } = await seedResp.json()
@@ -81,13 +81,13 @@ test.describe('US3: Invitee accepts an invitation', () => {
       request,
     }) => {
       const seedResp = await request.post(`${API_BASE}/api/v1/dev/seed/invitation`, {
-        data: { email: INVITEE_EMAIL, adminEmail: ADMIN_EMAIL, expiresInDays: -1 },
+        data: { email: INVITEE_EMAIL, expiresInDays: -1 },
       })
       const { token } = await seedResp.json()
 
       await page.goto(`${WEB_BASE}/accept/${token}`)
       await expect(
-        page.getByRole('status').filter({ hasText: /no longer valid|invite\.invalid/i }),
+        page.getByRole('alert').filter({ hasText: /no longer valid|invite\.invalid/i }),
       ).toBeVisible({ timeout: 10_000 })
     })
 
@@ -96,13 +96,13 @@ test.describe('US3: Invitee accepts an invitation', () => {
       request,
     }) => {
       const seedResp = await request.post(`${API_BASE}/api/v1/dev/seed/invitation`, {
-        data: { email: INVITEE_EMAIL, adminEmail: ADMIN_EMAIL, consumed: true },
+        data: { email: INVITEE_EMAIL, consumed: true },
       })
       const { token } = await seedResp.json()
 
       await page.goto(`${WEB_BASE}/accept/${token}`)
       await expect(
-        page.getByRole('status').filter({ hasText: /no longer valid|invite\.invalid/i }),
+        page.getByRole('alert').filter({ hasText: /no longer valid|invite\.invalid/i }),
       ).toBeVisible({ timeout: 10_000 })
     })
 
@@ -112,13 +112,13 @@ test.describe('US3: Invitee accepts an invitation', () => {
     }) => {
       // Invitation is for a different email; cookie is for INVITEE_EMAIL
       const seedResp = await request.post(`${API_BASE}/api/v1/dev/seed/invitation`, {
-        data: { email: 'different-addressee@example.com', adminEmail: ADMIN_EMAIL },
+        data: { email: 'different-addressee@example.com' },
       })
       const { token } = await seedResp.json()
 
       await page.goto(`${WEB_BASE}/accept/${token}`)
       await expect(
-        page.getByRole('status').filter({ hasText: /different email|invite\.email_mismatch/i }),
+        page.getByRole('alert').filter({ hasText: /different email|invite\.email_mismatch/i }),
       ).toBeVisible({ timeout: 10_000 })
     })
 
@@ -126,7 +126,7 @@ test.describe('US3: Invitee accepts an invitation', () => {
       const fakeToken = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
       await page.goto(`${WEB_BASE}/accept/${fakeToken}`)
       await expect(
-        page.getByRole('status').filter({ hasText: /no longer valid|invite\.invalid/i }),
+        page.getByRole('alert').filter({ hasText: /no longer valid|invite\.invalid/i }),
       ).toBeVisible({ timeout: 10_000 })
     })
   })

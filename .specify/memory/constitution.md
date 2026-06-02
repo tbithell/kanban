@@ -53,6 +53,47 @@ feedback. CI MUST run integration tests against both SQLite AND Postgres
 2. Requires component rendering without a browser → React Testing Library + Vitest
 3. Requires actual browser behavior → Playwright e2e
 
+**RTL component contract rules:**
+
+- RTL verifies rendering given state — does the component show the right thing when the
+  hook returns a given value? RTL MUST NOT attempt to verify async mutation lifecycle
+  (whether `navigate` fires after a real network call). Playwright owns that contract.
+- Mutation hook stubs MUST be typed as `UseMutationResult<TData, TError, TVariables>`
+  using the `satisfies` operator, not cast with `as` or typed loosely as `vi.fn()`.
+  TypeScript then catches API surface changes at compile time — a renamed field or changed
+  argument type breaks the stub, not silently at runtime.
+
+```tsx
+const idleMutation = {
+  mutate: vi.fn(),
+  mutateAsync: vi.fn(),
+  isPending: false,
+  isError: false,
+  error: null,
+  data: undefined,
+  reset: vi.fn(),
+  // remaining UseMutationResult fields...
+} satisfies UseMutationResult<User, ApiError, string>
+```
+
+**Playwright E2E auth setup — persona classification:**
+
+Test personas fall into two categories with different auth paths:
+
+| Persona | Has real Google account? | Google OAuth path | Dev endpoint path |
+|---------|--------------------------|-------------------|-------------------|
+| Admin | Yes | ✅ `google: authenticate as admin` — manual sign-in, saves `storageState` | ✅ `bypass: authenticate as admin` — CI / no-browser |
+| Invitee | No — synthetic email | ❌ Does not exist | ✅ Only path — always runs |
+| Unregistered | No — synthetic email | ❌ Does not exist | ✅ Only path — always runs |
+
+Rules:
+- Synthetic test personas (invitee, unregistered) MUST NOT have a `setup.skip` bypass
+  condition — the dev endpoint is the only auth path for them regardless of mode.
+- The real-Google admin setup step MUST include an `fs.existsSync` guard to skip re-auth
+  when a saved session already exists. Delete the file to force a fresh sign-in.
+- The dev authenticate endpoint (`GET /api/v1/dev/authenticate`) is registered only in
+  `IsDevelopment()` and MUST remain `AllowAnonymous`. It MUST NOT ship to production.
+
 Automated test coverage MUST be ≥ 90%. AI agents MUST follow TDD. A task is not complete
 until all four test layers pass.
 
@@ -185,6 +226,17 @@ tests but fails NFR gates is not complete.
 - User flows MUST be validated by Playwright e2e tests that exercise keyboard-only navigation.
 - Component tests MUST use React Testing Library's accessibility queries
   (`getByRole`, `getByLabelText`) over implementation-detail selectors (`getByTestId`).
+
+- **Fluent UI ARIA contract (non-negotiable):**
+  - Typography components (`Title1`, `Title2`, `Body1`, etc.) render as `<span>` by default.
+    When they serve as a page or section heading, they MUST use the `as="h1"` (or appropriate
+    level) prop so that `getByRole('heading', { level: N })` locators work. Missing `as` props
+    are both an a11y defect and a test-locator defect.
+  - `MessageBar` renders as `role="group"` by default. Any `MessageBar` conveying a transient
+    status or error MUST add `role="alert"` explicitly so it participates in the ARIA live
+    region tree and is reachable via `getByRole('alert')`.
+  - Every RTL component test for a page MUST assert `getByRole('heading', { level: 1 })` as
+    an explicit WCAG AA gate. A page without a level-1 heading fails the accessibility audit.
 
 #### Performance
 - React component re-renders MUST be profiled; unnecessary re-renders MUST be eliminated
@@ -846,6 +898,50 @@ onSettled → invalidateQueries to sync authoritative server state
 
 RTL tests use a `createQueryClientWrapper()` test utility providing a fresh `QueryClient`.
 Mocks target the fetch layer (msw) — not TanStack Query internals.
+
+### StrictMode and One-Shot Mutations
+
+React 18 StrictMode intentionally double-invokes effects (mount → simulated unmount → remount)
+in development to surface side-effect bugs. Two rules govern any component that auto-fires a
+mutation on mount:
+
+**Rule 1 — Guard with `useRef`:**
+
+Any `useEffect` that triggers a one-shot operation (a mutation that should fire exactly once)
+MUST use a `useRef(false)` guard. `useRef` survives StrictMode's simulated unmount; mutation
+state and TanStack Query `MutationObserver`s do not.
+
+```tsx
+const hasAttempted = useRef(false)
+useEffect(() => {
+  if (hasAttempted.current) return
+  if (conditionMet) {
+    hasAttempted.current = true
+    // fire the one-shot operation here
+  }
+}, [conditionMet])
+```
+
+**Rule 2 — Use `mutateAsync` when chaining imperative logic:**
+
+When a mutation's result drives navigation, a cascade, or any imperative follow-up action,
+use `mutateAsync` not `mutate`:
+
+```tsx
+// ✅ Promise chain survives StrictMode remount
+mutateAsync(payload).then(() => navigate('/')).catch(() => {})
+
+// ❌ useEffect watching data never fires — MutationObserver is destroyed on remount
+mutate(payload)
+useEffect(() => { if (data) navigate('/') }, [data, navigate])
+```
+
+`mutateAsync` returns a Promise whose `.then()` callbacks fire when the Promise resolves,
+regardless of component remount. `navigate` from `useNavigate()` is a stable reference in
+React Router v6 and is safe to call outside the render cycle.
+
+Use `mutate` (not `mutateAsync`) only for fire-and-forget mutations where the UI reads
+`data` / `error` declaratively on the next render cycle.
 
 ---
 
@@ -1816,6 +1912,48 @@ public sealed class PostgresCollection : ICollectionFixture<PostgresFixture> { }
 Docker Desktop (or Docker Engine on Linux) MUST be running for Testcontainers to work
 locally. CI runners (`ubuntu-latest`) have Docker available by default.
 
+### Test Infrastructure Isolation
+
+`WebApplicationFactory` configures the API for in-process testing. Any middleware that shapes
+responses — particularly rate limiters — MUST be neutralized so tests verify DB and business
+logic, not infrastructure limits.
+
+**Rate limiter override (non-negotiable):**
+
+```csharp
+// In KanbanWebAppFactory.ConfigureServices
+services.RemoveAll(typeof(IConfigureOptions<RateLimiterOptions>));
+services.AddRateLimiter(opts => {
+    // Every named policy defined in Program.cs MUST appear here.
+    // A missing policy causes a runtime error on any endpoint using RequireRateLimiting.
+    opts.AddFixedWindowLimiter("anonymous",       o => { o.PermitLimit = 10_000; ... });
+    opts.AddSlidingWindowLimiter("authenticated", o => { o.PermitLimit = 10_000; ... });
+    opts.AddSlidingWindowLimiter("mutating",      o => { o.PermitLimit = 10_000; ... });
+});
+```
+
+When a new rate-limiting policy is added to `Program.cs`, the factory override MUST be updated
+in the same commit. A policy present in production but absent from the factory causes a
+`KeyNotFoundException` at test startup — caught immediately.
+
+**Concurrency test load calibration:**
+
+Concurrency tests verify a DB invariant (e.g. exactly one winner). They do NOT test throughput.
+Load MUST be calibrated to the target test environment:
+
+- SQLite local tests: 3–5 concurrent requests — sufficient to trigger a race condition without
+  exhausting SQLite's single-writer constraint and requiring excessive Polly retries.
+- Each concurrency test MUST include a comment naming the invariant being verified.
+- Load testing (higher request volumes) belongs in a dedicated suite that explicitly documents
+  its infrastructure requirements.
+
+**Polly retry calibration:**
+
+Retry counts MUST be proportional to expected concurrency. For SQLite with 3–5 concurrent
+writers and WAL mode + `busy_timeout` configured, 5 retries with exponential backoff and
+jitter is the correct default. `MaxRetryAttempts = 20` is a symptom of over-loaded tests,
+not a production tuning requirement.
+
 ---
 
 ## Frontend Build & Deploy Model
@@ -2092,4 +2230,4 @@ Amendments require: (1) documented rationale, (2) version bump per the policy be
 All implementation tasks and AI agent outputs MUST be verified for compliance with this
 constitution before a task is marked complete.
 
-**Version**: 1.7.2 | **Ratified**: 2026-05-23 | **Last Amended**: 2026-05-26
+**Version**: 1.7.7 | **Ratified**: 2026-05-23 | **Last Amended**: 2026-06-01

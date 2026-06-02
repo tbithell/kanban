@@ -10,6 +10,10 @@ const BYPASS = process.env.PLAYWRIGHT_AUTH_BYPASS === 'true'
 
 setup.beforeAll(() => {
   fs.mkdirSync('playwright/.auth', { recursive: true })
+  const emptyState = JSON.stringify({ cookies: [], origins: [] })
+  for (const p of [INVITEE_AUTH, UNREGISTERED_AUTH]) {
+    if (!fs.existsSync(p)) fs.writeFileSync(p, emptyState)
+  }
 })
 
 // ── CI / bypass path ──────────────────────────────────────────────────────────
@@ -23,8 +27,9 @@ setup('bypass: authenticate as admin', async ({ page }) => {
   await page.context().storageState({ path: ADMIN_AUTH })
 })
 
-setup('bypass: authenticate as unregistered invitee', async ({ page }) => {
-  setup.skip(!BYPASS, 'bypass path only — run with PLAYWRIGHT_AUTH_BYPASS=true')
+setup('authenticate as unregistered invitee', async ({ page }) => {
+  // No Google sign-in path exists for test invitees — dev endpoint is the only option
+  // regardless of whether PLAYWRIGHT_AUTH_BYPASS is set.
   await page.goto(
     `${API_BASE}/api/v1/dev/authenticate` +
     `?email=${encodeURIComponent(INVITEE_EMAIL)}&displayName=Playwright+Invitee`,
@@ -33,8 +38,8 @@ setup('bypass: authenticate as unregistered invitee', async ({ page }) => {
   await page.context().storageState({ path: INVITEE_AUTH })
 })
 
-setup('bypass: authenticate as unregistered non-invited user', async ({ page }) => {
-  setup.skip(!BYPASS, 'bypass path only — run with PLAYWRIGHT_AUTH_BYPASS=true')
+setup('authenticate as unregistered non-invited user', async ({ page }) => {
+  // No Google sign-in path exists for test non-invited users — dev endpoint is the only option.
   await page.goto(
     `${API_BASE}/api/v1/dev/authenticate` +
     `?email=${encodeURIComponent(UNREGISTERED_EMAIL)}&displayName=Playwright+Unregistered`,
@@ -50,6 +55,7 @@ setup('bypass: authenticate as unregistered non-invited user', async ({ page }) 
 
 setup('google: authenticate as admin', async ({ page, context }) => {
   setup.skip(BYPASS, 'real Google path only — run without PLAYWRIGHT_AUTH_BYPASS=true')
+  setup.skip(fs.existsSync(ADMIN_AUTH), 'saved session exists — delete playwright/.auth/admin.json to force re-auth')
   setup.setTimeout(180_000)
   await page.goto(`${WEB_BASE}/signin`)
   await expect(page.getByRole('link', { name: /sign in with google/i })).toBeVisible()

@@ -89,18 +89,46 @@ public sealed class AuthServiceTests
             e.EventType == AuthEventType.SignIn && e.UserId == user.Id);
     }
 
+    [Fact]
+    public async Task GetCurrentUserAsync_WhenUserExists_ReturnsDtoWithMatchingFields()
+    {
+        var user = UserBuilder.AUser().AsAdmin().Build();
+        var userRepo = new FakeUserRepository(byGoogleSub: null, byEmail: null, byId: user);
+        var sut = CreateSut(userRepo, new FakeAuthEventRepository());
+
+        var result = await sut.GetCurrentUserAsync(user.Id);
+
+        result.Should().NotBeNull();
+        result!.Id.Should().Be(user.Id);
+        result.Email.Should().Be(user.Email);
+        result.SystemRole.Should().Be("admin");
+    }
+
+    [Fact]
+    public async Task GetCurrentUserAsync_WhenUserDoesNotExist_ReturnsNull()
+    {
+        var userRepo = new FakeUserRepository(byGoogleSub: null, byEmail: null, byId: null);
+        var sut = CreateSut(userRepo, new FakeAuthEventRepository());
+
+        var result = await sut.GetCurrentUserAsync(Guid.NewGuid());
+
+        result.Should().BeNull();
+    }
+
     private sealed class FakeUserRepository : IUserRepository
     {
         private readonly User? _byGoogleSub;
         private readonly User? _byEmail;
+        private readonly User? _byId;
 
         public string? LinkedGoogleSub { get; private set; }
         public Guid? UpdatedLastSignInUserId { get; private set; }
 
-        public FakeUserRepository(User? byGoogleSub, User? byEmail)
+        public FakeUserRepository(User? byGoogleSub, User? byEmail, User? byId = null)
         {
             _byGoogleSub = byGoogleSub;
             _byEmail = byEmail;
+            _byId = byId;
         }
 
         public Task<User?> FindByGoogleSubAsync(string googleSub, IDbTransaction? tx = null)
@@ -110,7 +138,7 @@ public sealed class AuthServiceTests
             => Task.FromResult(_byEmail);
 
         public Task<User?> FindByIdAsync(Guid id, IDbTransaction? tx = null)
-            => Task.FromResult<User?>(null);
+            => Task.FromResult(_byId);
 
         public Task InsertAsync(User user, IDbTransaction tx)
             => Task.CompletedTask;

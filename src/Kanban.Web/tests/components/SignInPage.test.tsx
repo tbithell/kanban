@@ -3,9 +3,9 @@ import { describe, it, expect } from 'vitest'
 import SignInPage from '../../src/pages/SignInPage'
 
 describe('SignInPage', () => {
-  it('renders a heading that identifies the sign-in page', () => {
+  it('renders a level-1 heading — WCAG AA gate', () => {
     render(<SignInPage />)
-    expect(screen.getByRole('heading', { name: /sign in/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: /sign in/i })).toBeInTheDocument()
   })
 
   it('renders a sign in with Google button', () => {

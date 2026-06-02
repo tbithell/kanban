@@ -28,7 +28,7 @@ public sealed class InvitationService : IInvitationService
         new ResiliencePipelineBuilder()
             .AddRetry(new RetryStrategyOptions
             {
-                MaxRetryAttempts = 20,
+                MaxRetryAttempts = 5,
                 Delay = TimeSpan.FromMilliseconds(50),
                 BackoffType = DelayBackoffType.Exponential,
                 UseJitter = true,
