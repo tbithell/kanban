@@ -1,10 +1,13 @@
 using Kanban.Api.Auth;
+using Kanban.Api.Options;
 using Kanban.Business.Interfaces;
 using Kanban.Contracts;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using CorsOptions = Kanban.Api.Options.CorsOptions;
 
 namespace Kanban.Api.Endpoints;
 
@@ -15,9 +18,15 @@ public static class AuthEndpoints
         var auth = routes.MapGroup("/auth");
 
         auth.MapGet("/signin",
-            ([FromQuery] string? returnUrl) =>
+            ([FromQuery] string? returnUrl, IOptions<CorsOptions> corsOptions) =>
             {
-                var redirectUri = string.IsNullOrWhiteSpace(returnUrl) ? "/" : returnUrl;
+                var frontendBase = corsOptions.Value.AllowedOrigins.FirstOrDefault()
+                    ?? "http://localhost:5173";
+                var redirectUri = string.IsNullOrWhiteSpace(returnUrl)
+                    ? frontendBase
+                    : returnUrl.StartsWith('/')
+                        ? $"{frontendBase}{returnUrl}"
+                        : returnUrl;
                 return Results.Challenge(
                     new AuthenticationProperties { RedirectUri = redirectUri },
                     [GoogleDefaults.AuthenticationScheme]);

@@ -35,9 +35,15 @@ dist/
 *.log
 .env*
 
+# SQLite local dev databases
+*.db
+*.db-shm
+*.db-wal
+
 # Playwright
 playwright-report/
 test-results/
+tests/e2e/playwright/.auth/
 
 # User secrets location (never commit)
 **/secrets.json

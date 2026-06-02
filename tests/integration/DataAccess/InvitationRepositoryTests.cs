@@ -107,7 +107,7 @@ public sealed class InvitationRepositoryTests : IDisposable
         bool result;
         using (var tx = _connection.BeginTransaction())
         {
-            result = await _sut.TryConsumeAsync(token.Hash, _consumerId, DateTimeOffset.UtcNow, tx);
+            result = await _sut.TryConsumeAsync(token.Hash, DateTimeOffset.UtcNow, tx);
             tx.Commit();
         }
 
@@ -127,7 +127,7 @@ public sealed class InvitationRepositoryTests : IDisposable
 
         using (var tx = _connection.BeginTransaction())
         {
-            await _sut.TryConsumeAsync(token.Hash, _consumerId, DateTimeOffset.UtcNow, tx);
+            await _sut.TryConsumeAsync(token.Hash, DateTimeOffset.UtcNow, tx);
             tx.Commit();
         }
 
@@ -135,7 +135,7 @@ public sealed class InvitationRepositoryTests : IDisposable
         using (var tx = _connection.BeginTransaction())
         {
             secondResult = await _sut.TryConsumeAsync(
-                token.Hash, _consumerId, DateTimeOffset.UtcNow, tx);
+                token.Hash, DateTimeOffset.UtcNow, tx);
             tx.Commit();
         }
 
@@ -158,7 +158,7 @@ public sealed class InvitationRepositoryTests : IDisposable
         using (var tx = _connection.BeginTransaction())
         {
             result = await _sut.TryConsumeAsync(
-                token.Hash, _consumerId, DateTimeOffset.UtcNow, tx);
+                token.Hash, DateTimeOffset.UtcNow, tx);
             tx.Commit();
         }
 

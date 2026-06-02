@@ -138,9 +138,22 @@ dotnet test tests/integration/
 
 # Frontend component tests
 cd src/Kanban.Web && npm test
+```
 
-# E2E tests (requires both API and Web running)
-npx playwright test tests/e2e/Auth/
+### E2E tests
+
+See **[tests/e2e/README.md](../../tests/e2e/README.md)** for full instructions. Short version:
+
+```bash
+# Step 1 — API must be running first (Vite is started automatically)
+cd src/Kanban.Api && dotnet run
+
+# Step 2a — CI / bypass (no Google sign-in required)
+cd tests/e2e && npm run test:e2e
+
+# Step 2b — Full demo with real Google OAuth (one-time setup)
+cd tests/e2e && npm run test:e2e:setup   # opens browser, sign in once
+cd tests/e2e && npm run test:e2e:demo    # runs headed with saved session
 ```
 
 ---
@@ -154,4 +167,6 @@ npx playwright test tests/e2e/Auth/
 - [ ] An invitation can be issued and the redemption link returned
 - [ ] Invitee can accept the invitation via the redemption link
 - [ ] Unregistered Google user receives "not registered" response (FR-005)
-- [ ] All four test layers pass: `dotnet test` (unit + integration) + `npm test` + `npx playwright test`
+- [ ] Unit + integration tests pass: `dotnet test tests/unit/ && dotnet test tests/integration/`
+- [ ] Frontend component tests pass: `cd src/Kanban.Web && npm test`
+- [ ] E2E bypass mode passes: `cd tests/e2e && npm run test:e2e` (API must be running)

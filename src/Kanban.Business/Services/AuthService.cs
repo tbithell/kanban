@@ -26,9 +26,10 @@ public sealed class AuthService : IAuthService
         new ResiliencePipelineBuilder()
             .AddRetry(new RetryStrategyOptions
             {
-                MaxRetryAttempts = 3,
+                MaxRetryAttempts = 5,
                 Delay = TimeSpan.FromMilliseconds(50),
                 BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
                 ShouldHandle = new PredicateBuilder().Handle<Exception>(ex =>
                     ex.Message.Contains("SQLITE_BUSY", StringComparison.OrdinalIgnoreCase) ||
                     ex.Message.Contains("database is locked", StringComparison.OrdinalIgnoreCase)),

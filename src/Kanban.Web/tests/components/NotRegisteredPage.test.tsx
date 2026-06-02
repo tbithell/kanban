@@ -3,10 +3,10 @@ import { describe, it, expect } from 'vitest'
 import NotRegisteredPage from '../../src/pages/NotRegisteredPage'
 
 describe('NotRegisteredPage', () => {
-  it('renders a heading communicating the user is not yet registered', () => {
+  it('renders a level-1 heading — WCAG AA gate', () => {
     render(<NotRegisteredPage />)
     expect(
-      screen.getByRole('heading', { name: /not registered|access denied/i })
+      screen.getByRole('heading', { level: 1, name: /not registered|access denied/i })
     ).toBeInTheDocument()
   })
 

@@ -25,6 +25,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
 using NetEscapades.AspNetCore.SecurityHeaders;
@@ -66,6 +67,9 @@ builder.Services.AddScoped<IDbConnection>(sp =>
     var opts = sp.GetRequiredService<IOptions<ConnectionStringOptions>>().Value;
     var conn = new SqliteConnection(opts.Kanban);
     conn.Open();
+    using var cmd = conn.CreateCommand();
+    cmd.CommandText = "PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;";
+    cmd.ExecuteNonQuery();
     return conn;
 });
 
@@ -141,6 +145,15 @@ builder.Services.AddAuthentication(options =>
             .Get<GoogleAuthOptions>()!;
         options.ClientId = googleOpts.ClientId;
         options.ClientSecret = googleOpts.ClientSecret;
+
+        // ASP.NET Core's default ClaimActions remap "sub" → ClaimTypes.NameIdentifier
+        // (a long URN). GoogleIdentityAdapter expects the raw OIDC claim names, so we
+        // clear the defaults and map only the three fields the adapter actually reads.
+        options.ClaimActions.Clear();
+        options.ClaimActions.MapJsonKey("sub", "sub");
+        options.ClaimActions.MapJsonKey("email", "email");
+        options.ClaimActions.MapJsonKey("name", "name");
+
         options.Events.OnTicketReceived = async ctx =>
         {
             var adapter = ctx.HttpContext.RequestServices
@@ -207,11 +220,14 @@ builder.Services.AddRateLimiter(opts =>
             .ExecuteAsync(ctx.HttpContext);
     };
 
-    opts.AddFixedWindowLimiter("anonymous", o =>
-    {
-        o.PermitLimit = 10;
-        o.Window = TimeSpan.FromMinutes(1);
-    });
+    opts.AddPolicy("anonymous", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+            }));
 
     opts.AddSlidingWindowLimiter("authenticated", o =>
     {
@@ -333,16 +349,24 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference();
+
+    var devGroup = app.MapGroup("/api/v1").AllowAnonymous();
+    DevEndpoints.Map(devGroup);
 }
 
 // ── Versioned API (v1) — endpoints registered in Endpoints/ ───────────────────
 
 var v1 = app.NewVersionedApi();
-var v1Group = v1.MapGroup("/api/v1")
+var v1RegisteredUserGroup = v1.MapGroup("/api/v1")
     .HasApiVersion(1, 0)
     .RequireAuthorization("RegisteredUser");
-AuthEndpoints.Map(v1Group);
-InviteEndpoints.Map(v1Group);
+AuthEndpoints.Map(v1RegisteredUserGroup);
+InviteEndpoints.Map(v1RegisteredUserGroup);
+
+var v1GoogleAuthGroup = v1.MapGroup("/api/v1")
+    .HasApiVersion(1, 0)
+    .RequireAuthorization();
+InviteEndpoints.MapAcceptEndpoint(v1GoogleAuthGroup);
 
 app.Run();
 

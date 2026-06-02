@@ -7,8 +7,11 @@ using Dapper;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -53,7 +56,82 @@ public sealed class KanbanWebAppFactory : WebApplicationFactory<Program>
             })
             .AddScheme<TestAuthHandlerOptions, TestAuthenticationHandler>(
                 TestAuthenticationHandler.SchemeName, null);
+
+            // Replace production rate limits with permissive values so concurrency tests
+            // are not interfered with by the rate limiter.
+            // MAINTENANCE: this block must enumerate every named policy defined in Program.cs.
+            // If a new policy is added there, add it here too — a missing policy causes a
+            // runtime error on any endpoint tagged with .RequireRateLimiting("new-policy").
+            services.RemoveAll(typeof(IConfigureOptions<RateLimiterOptions>));
+            services.Configure<RateLimiterOptions>(opts =>
+            {
+                opts.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                opts.AddFixedWindowLimiter("anonymous", o =>
+                {
+                    o.PermitLimit = 10_000;
+                    o.Window = TimeSpan.FromMinutes(1);
+                });
+                opts.AddSlidingWindowLimiter("authenticated", o =>
+                {
+                    o.PermitLimit = 10_000;
+                    o.Window = TimeSpan.FromMinutes(1);
+                    o.SegmentsPerWindow = 6;
+                });
+                opts.AddSlidingWindowLimiter("mutating", o =>
+                {
+                    o.PermitLimit = 10_000;
+                    o.Window = TimeSpan.FromMinutes(1);
+                    o.SegmentsPerWindow = 6;
+                });
+            });
         });
+    }
+
+    public async Task<string> InsertInvitationWithRawTokenAsync(
+        string email, Guid issuedByUserId,
+        DateTimeOffset? expiresAt = null, DateTimeOffset? consumedAt = null)
+    {
+        _ = Server;
+        var (rawToken, tokenHash) = GenerateRawToken();
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<IDbConnection>();
+        var id = Guid.NewGuid();
+        await db.ExecuteAsync(
+            """
+            INSERT INTO invitations (id, email, issued_by_user_id, token_hash, issued_at, expires_at,
+                                     consumed_at, consumed_by_user_id)
+            VALUES (@id, @email, @issuedByUserId, @tokenHash, @issuedAt, @expiresAt, @consumedAt, NULL)
+            """,
+            new
+            {
+                id = id.ToString("D"),
+                email,
+                issuedByUserId = issuedByUserId.ToString("D"),
+                tokenHash,
+                issuedAt = DateTimeOffset.UtcNow.ToString("o"),
+                expiresAt = (expiresAt ?? DateTimeOffset.UtcNow.AddDays(7)).ToString("o"),
+                consumedAt = consumedAt?.ToString("o"),
+            });
+        return rawToken;
+    }
+
+    public async Task<int> CountUsersForEmailAsync(string email)
+    {
+        _ = Server;
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<IDbConnection>();
+        return await db.QuerySingleAsync<int>(
+            "SELECT COUNT(*) FROM users WHERE email = @email", new { email });
+    }
+
+    private static (string rawToken, string tokenHash) GenerateRawToken()
+    {
+        var bytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
+        var raw = Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        var hash = Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(raw))).ToLower();
+        return (raw, hash);
     }
 
     public async Task InsertActiveInvitationAsync(string email, Guid issuedByUserId)
@@ -172,10 +250,17 @@ public static class TestPrincipals
             TestAuthenticationHandler.SchemeName));
 
     public static ClaimsPrincipal UnregisteredGoogleUser() =>
+        UnregisteredGoogleUser("unregistered@example.com");
+
+    public static ClaimsPrincipal UnregisteredGoogleUser(
+        string email,
+        string? googleSub = null,
+        string displayName = "Test Invitee") =>
         new(new ClaimsIdentity(
             [
-                new Claim("sub", "unregistered-google-sub"),
-                new Claim("email", "unregistered@example.com"),
+                new Claim("sub", googleSub ?? $"google-sub-{email}"),
+                new Claim("email", email),
+                new Claim("name", displayName),
             ],
             TestAuthenticationHandler.SchemeName));
 }

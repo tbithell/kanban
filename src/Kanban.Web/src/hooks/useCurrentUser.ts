@@ -10,9 +10,11 @@ export interface CurrentUser {
 }
 
 class HttpError extends Error {
-  constructor(public readonly status: number) {
+  readonly status: number
+  constructor(status: number) {
     super(`HTTP ${status}`)
     this.name = 'HttpError'
+    this.status = status
   }
 }
 
@@ -31,7 +33,7 @@ export interface UseCurrentUserResult {
 }
 
 export function useCurrentUser(): UseCurrentUserResult {
-  const { data, isLoading, isError, error } = useQuery({
+  const { data, isPending, isError, error } = useQuery({
     queryKey: ['currentUser'],
     queryFn: fetchCurrentUser,
     retry: false,
@@ -42,7 +44,7 @@ export function useCurrentUser(): UseCurrentUserResult {
 
   return {
     user: data,
-    isLoading,
+    isLoading: isPending,
     isUnauthenticated,
     isNotRegistered,
     isError,
