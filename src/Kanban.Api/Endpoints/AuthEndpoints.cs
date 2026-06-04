@@ -32,7 +32,11 @@ public static class AuthEndpoints
             {
                 var frontendBase = corsOptions.Value.AllowedOrigins.FirstOrDefault()
                     ?? "http://localhost:5173";
-                var redirectUri = SafeRedirectUri(returnUrl, frontendBase, corsOptions.Value.AllowedOrigins);
+                var redirectUri = string.IsNullOrWhiteSpace(returnUrl)
+                    ? frontendBase
+                    : returnUrl.StartsWith('/')
+                        ? $"{frontendBase}{returnUrl}"
+                        : returnUrl;
                 return Results.Challenge(
                     new AuthenticationProperties { RedirectUri = redirectUri },
                     [GoogleDefaults.AuthenticationScheme]);
