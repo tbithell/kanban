@@ -3,6 +3,7 @@ using Dapper;
 using Kanban.DataAccess.Interfaces;
 using Kanban.Domain;
 using Kanban.Domain.Entities;
+using Kanban.Domain.Exceptions;
 
 namespace Kanban.DataAccess.Repositories;
 
@@ -117,7 +118,8 @@ public sealed class InvitationRepository : IInvitationRepository
             transaction: tx);
 
         if (rowsAffected == 0)
-            throw new InvalidOperationException(
+            throw new DataAccessException(
+                "invite.consumer_not_recorded",
                 "RecordConsumerAsync affected 0 rows — invitation record missing after successful TryConsumeAsync");
     }
 

@@ -45,6 +45,7 @@ public static class InviteEndpoints
                         [
                             new Claim("sub", googleSub),
                             new Claim("email", user.Email),
+                            new Claim("name", displayName!),
                             new Claim("user_id", user.Id.ToString()),
                             new Claim("system_role", "standard"),
                         ],
