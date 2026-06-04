@@ -51,8 +51,10 @@ public sealed class InvitationServiceTests
         response.RedemptionLink.Should().Contain("/accept/");
         response.ExpiresAt.Should().BeCloseTo(DateTimeOffset.UtcNow.AddDays(7), TimeSpan.FromSeconds(10));
         invitationRepo.InsertedInvitations.Should().ContainSingle();
-        authEventRepo.RecordedEvents.Should().ContainSingle(e =>
-            e.EventType == AuthEventType.InvitationIssued);
+        var issuedEvt = authEventRepo.RecordedEvents.Should().ContainSingle(e =>
+            e.EventType == AuthEventType.InvitationIssued).Subject;
+        issuedEvt.Outcome.Should().NotContain("@", "audit events must not contain email addresses");
+        issuedEvt.Outcome.Should().NotContain("newuser", "audit events must not contain identifiable strings");
     }
 
     [Fact]
@@ -142,8 +144,11 @@ public sealed class InvitationServiceTests
         user.SystemRole.Should().Be(SystemRole.Standard);
         user.GoogleSub.Should().Be("google-sub-123");
         userRepo.InsertedUsers.Should().ContainSingle();
-        authEventRepo.RecordedEvents.Should().ContainSingle(e =>
-            e.EventType == AuthEventType.InvitationAccepted);
+        var acceptedEvt = authEventRepo.RecordedEvents.Should().ContainSingle(e =>
+            e.EventType == AuthEventType.InvitationAccepted).Subject;
+        acceptedEvt.Outcome.Should().NotContain("@", "audit events must not contain email addresses");
+        acceptedEvt.Outcome.Should().NotContain("validrawtoken", "audit events must not contain token values");
+        acceptedEvt.Outcome.Should().NotContain("Invitee User", "audit events must not contain display names");
     }
 
     [Fact]

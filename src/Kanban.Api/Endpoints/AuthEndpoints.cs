@@ -13,6 +13,16 @@ namespace Kanban.Api.Endpoints;
 
 public static class AuthEndpoints
 {
+    private static string SafeRedirectUri(string? returnUrl, string frontendBase, string[] allowedOrigins)
+    {
+        if (string.IsNullOrWhiteSpace(returnUrl)) return frontendBase;
+        if (returnUrl.StartsWith('/')) return $"{frontendBase}{returnUrl}";
+        foreach (var origin in allowedOrigins)
+            if (returnUrl.StartsWith(origin, StringComparison.OrdinalIgnoreCase))
+                return returnUrl;
+        return frontendBase;
+    }
+
     public static void Map(IEndpointRouteBuilder routes)
     {
         var auth = routes.MapGroup("/auth");
@@ -22,11 +32,7 @@ public static class AuthEndpoints
             {
                 var frontendBase = corsOptions.Value.AllowedOrigins.FirstOrDefault()
                     ?? "http://localhost:5173";
-                var redirectUri = string.IsNullOrWhiteSpace(returnUrl)
-                    ? frontendBase
-                    : returnUrl.StartsWith('/')
-                        ? $"{frontendBase}{returnUrl}"
-                        : returnUrl;
+                var redirectUri = SafeRedirectUri(returnUrl, frontendBase, corsOptions.Value.AllowedOrigins);
                 return Results.Challenge(
                     new AuthenticationProperties { RedirectUri = redirectUri },
                     [GoogleDefaults.AuthenticationScheme]);

@@ -14,3 +14,11 @@ id = "dotnet-user-secrets"
 description = "Hardcoded ASP.NET credential string literal (ClientSecret/ClientId = \"value\")"
 regex = '''(ClientSecret|ClientId)\s*[:=]\s*["'][A-Za-z0-9_\-\.]{10,}["']'''
 keywords = ["ClientSecret", "ClientId"]
+
+[allowlist]
+description = "Documentation example values — not real secrets"
+regexTarget = "match"
+regexes = [
+  # Invitation token example in API contract docs (aB3cD4… pattern)
+  '''aB3cD4eF5gH6iJ7kL8mN9oP0qR1sT2uV''',
+]

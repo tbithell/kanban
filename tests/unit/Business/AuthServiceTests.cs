@@ -90,6 +90,23 @@ public sealed class AuthServiceTests
     }
 
     [Fact]
+    public async Task HandleSignInAsync_RecordedSignInEvent_ContainsNoPii()
+    {
+        var user = UserBuilder.AUser().WithGoogleSub("some-sub").WithEmail("user@example.com").Build();
+        var userRepo = new FakeUserRepository(byGoogleSub: user, byEmail: null);
+        var authEventRepo = new FakeAuthEventRepository();
+        var sut = CreateSut(userRepo, authEventRepo);
+
+        await sut.HandleSignInAsync("some-sub", "user@example.com", new ClaimsIdentity());
+
+        var evt = authEventRepo.RecordedEvents.Should().ContainSingle().Subject;
+        evt.Outcome.Should().NotContain("@", "Outcome must not contain email addresses");
+        evt.Outcome.Should().NotContain("some-sub", "Outcome must not contain the Google sub claim");
+        evt.Id.Should().NotBe(Guid.Empty);
+        evt.UserId.Should().NotBe(Guid.Empty);
+    }
+
+    [Fact]
     public async Task GetCurrentUserAsync_WhenUserExists_ReturnsDtoWithMatchingFields()
     {
         var user = UserBuilder.AUser().AsAdmin().Build();
