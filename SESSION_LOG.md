@@ -2045,3 +2045,28 @@ All done. Here's the full structure created:
 Each sub-issue has the acceptance scenarios from the spec, a task checklist (RED/GREEN split), phase dependencies, and a definition of done. They're wired as GitHub sub-issues of #9 so progress rolls up automatically.
 
 ---
+
+## Session 31
+
+**User:** there were some conflicts due to github suggested changes, check the most recent commit for any issues
+
+**Claude:** The merge of `main` into `002-kanban-core` (commit `277a7eb`) resolved a conflict in `AuthEndpoints.cs` by taking the incoming version of the redirect logic, which discarded the `SafeRedirectUri` call introduced in `ea26400`. The private method was still present in the file but was no longer called — leaving the open-redirect vulnerability back in place while appearing to compile cleanly.
+
+Restored the `SafeRedirectUri(returnUrl, frontendBase, corsOptions.Value.AllowedOrigins)` call at the conflict site, verified the build, and committed as `c452fe3`:
+
+```
+fix(security): restore open-redirect fix reverted by merge conflict resolution
+
+The merge of main into 002-kanban-core resolved the conflict in AuthEndpoints.cs
+by taking the incoming (main) version of the redirect logic, which discarded the
+SafeRedirectUri call introduced in ea26400. The private method was retained but
+was no longer called, leaving the open-redirect vulnerability in place.
+```
+
+Pushed to `origin/002-kanban-core`.
+
+Worth noting for future merges: when a conflict touches a security-critical call site, always verify the resolved version still calls the safe helper, not just that the helper still compiles.
+
+**User:** `/session-update`
+
+---
