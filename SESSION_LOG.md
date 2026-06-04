@@ -1739,3 +1739,51 @@ All 8 artifacts in place. Planning is complete.
 **User:** /session-update
 
 ---
+
+## Session 27
+
+**User:** `/speckit-git-commit`
+
+**Claude:** Auto-commit is disabled in the config for `after_plan`. Since you invoked this manually, let me commit the planning artifacts directly.
+
+*[Checked git status — 11 files uncommitted: `specs/002-kanban-core/` (8 new files), `.specify/feature.json`, `CLAUDE.md`, `SESSION_LOG.md`]*
+
+Committed — `0ad624f`. All 11 files staged and committed:
+
+- `specs/002-kanban-core/` — all 8 planning artifacts (spec, research, data-model, endpoints, dtos, quickstart, plan, checklist)
+- `.specify/feature.json` — updated feature pointer
+- `CLAUDE.md` — updated plan reference
+- `SESSION_LOG.md` — session 26 appended
+
+gitleaks found no leaks. Ready for `/speckit-tasks 002-kanban-core` when you want to generate the task list.
+
+**User:** `/speckit-tasks 002-kanban-core`
+
+**Claude:** Running setup and loading all design documents.
+
+*[Ran setup-tasks.sh, read tasks template, spec.md, plan.md, data-model.md, contracts/dtos.md, contracts/endpoints.md]*
+
+Generated `specs/002-kanban-core/tasks.md` — 87 tasks across 8 phases.
+
+**Phase structure:**
+
+| Phase | Story | Tasks | Notes |
+|-------|-------|-------|-------|
+| 1 — Setup | — | T001–T015 (15) | Migrations, entities, contracts, builders |
+| 2 — Foundational | — | T016–T030 (15) | Repos, interfaces, transforms, auth, DI |
+| 3 — US1 Board + Lane | P1 | T031–T047 (17) | Full TDD cycle |
+| 4 — US2 Card Management | P1 | T048–T059 (12) | Full TDD cycle |
+| 5 — US3 Drag-and-Drop | P1 | T060–T068 (9) | RTL sensors mocked; Playwright for real drag |
+| 6 — US4 Membership | P2 | T069–T079 (11) | Atomic accept + last-owner guard |
+| 7 — US5 Viewer | P3 | T080–T081 (2) | Frontend guards + e2e |
+| 8 — Polish | — | T082–T087 (6) | Bundle, WCAG, quickstart |
+
+**MVP scope**: Phases 1–5 (T001–T068) = 68 tasks deliver a functional Kanban board with drag-and-drop. Phases 6–8 add membership and complete the spec.
+
+**Parallel opportunities**: 51 tasks marked `[P]` — all test files within a story phase can be written simultaneously; all domain entities (Phase 1) can be created simultaneously; all repository implementations (Phase 2) can proceed in parallel.
+
+**Key TDD enforcement**: Each user story phase opens with failing test tasks (unit + integration + RTL + e2e) that MUST fail before the implementation tasks begin. A failing-test commit MUST precede each passing-implementation commit per the constitution.
+
+**User:** `/session-update`
+
+---

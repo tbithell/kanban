@@ -188,14 +188,14 @@ back in via regular flow, confirm recognized as same registered user.
 
 **Purpose**: Verify audit integrity, information-leakage gates, and spec success criteria.
 
-- [ ] T074 [P] Verify FR-021 audit integrity: add assertions to existing unit tests confirming AuthEvent records for SignIn, InvitationIssued, InvitationAccepted, AcceptanceRefused contain no email addresses, token values, or display names — only GUIDs, event types, and outcome codes in tests/unit/Business/AuthServiceTests.cs and InvitationServiceTests.cs
-- [ ] T075 [P] Verify SC-005 information-leakage gate: assert that the response body for expired token, consumed token, and fabricated token are byte-for-byte identical in tests/integration/Api/InviteEndpointTests.cs
-- [ ] T076 [P] Verify SC-007 concurrent acceptance: confirm the 20-parallel-request integration test in InviteEndpointTests.cs shows exactly 1 success (200) and 19 failures (410) with zero duplicate user records in DB
-- [ ] T077 Run quickstart.md validation: follow all steps from specs/001-auth-onboarding/quickstart.md on a clean checkout; update quickstart.md if any step is incorrect or missing
-- [ ] T078 [P] Run Snyk SCA + SAST scan on all backend projects and Kanban.Web; resolve any medium/high/critical findings before marking feature complete
-- [ ] T079 [P] Verify gitleaks scan on branch diff: `gitleaks detect --source .` confirms no secrets in any committed file
-- [ ] T080 Run all four test layers and confirm ≥ 90% coverage: `dotnet test tests/unit/ tests/integration/`; `cd src/Kanban.Web && npm test`; `npx playwright test tests/e2e/Auth/`
-- [ ] T081 Update SESSION_LOG.md with this implementation session
+- [x] T074 [P] Verify FR-021 audit integrity: add assertions to existing unit tests confirming AuthEvent records for SignIn, InvitationIssued, InvitationAccepted, AcceptanceRefused contain no email addresses, token values, or display names — only GUIDs, event types, and outcome codes in tests/unit/Business/AuthServiceTests.cs and InvitationServiceTests.cs
+- [x] T075 [P] Verify SC-005 information-leakage gate: assert that the response body for expired token, consumed token, and fabricated token are byte-for-byte identical in tests/integration/Api/InviteEndpointTests.cs
+- [x] T076 [P] Verify SC-007 concurrent acceptance: confirm the 20-parallel-request integration test in InviteEndpointTests.cs shows exactly 1 success (200) and 19 failures (410) with zero duplicate user records in DB
+- [x] T077 Run quickstart.md validation: follow all steps from specs/001-auth-onboarding/quickstart.md on a clean checkout; update quickstart.md if any step is incorrect or missing
+- [x] T078 [P] Run Snyk SCA + SAST scan on all backend projects and Kanban.Web; resolve any medium/high/critical findings before marking feature complete
+- [x] T079 [P] Verify gitleaks scan on branch diff: `gitleaks detect --source .` confirms no secrets in any committed file
+- [x] T080 Run all four test layers and confirm ≥ 90% coverage: `dotnet test tests/unit/ tests/integration/`; `cd src/Kanban.Web && npm test`; `npx playwright test tests/e2e/Auth/`
+- [x] T081 Update SESSION_LOG.md with this implementation session
 
 ---
 

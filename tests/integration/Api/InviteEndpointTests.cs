@@ -162,6 +162,50 @@ public sealed class InviteEndpointTests : IClassFixture<KanbanWebAppFactory>
     }
 
     [Fact]
+    public async Task PostAcceptInvite_InvalidTokenVariants_ReturnIndistinguishableResponses()
+    {
+        // SC-005: expired, consumed, and fabricated tokens must be indistinguishable to the caller.
+        // All three must return the same HTTP status and the same error code so that an attacker
+        // cannot determine whether a token ever existed or whether it has been used.
+        var adminId = await _factory.GetSeededAdminIdAsync();
+
+        var expiredToken = await _factory.InsertInvitationWithRawTokenAsync(
+            "sc005-expired@example.com", adminId, expiresAt: DateTimeOffset.UtcNow.AddDays(-1));
+        var consumedToken = await _factory.InsertInvitationWithRawTokenAsync(
+            "sc005-consumed@example.com", adminId, consumedAt: DateTimeOffset.UtcNow.AddMinutes(-5));
+        const string fabricatedToken = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+
+        var expiredClient = _factory.CreateAuthenticatedClient(
+            TestPrincipals.UnregisteredGoogleUser("sc005-expired@example.com"));
+        var consumedClient = _factory.CreateAuthenticatedClient(
+            TestPrincipals.UnregisteredGoogleUser("sc005-consumed@example.com"));
+        var fabricatedClient = _factory.CreateAuthenticatedClient(
+            TestPrincipals.UnregisteredGoogleUser("sc005-fabricated@example.com"));
+
+        var expiredResponse = await expiredClient.PostAsync($"/api/v1/invites/{expiredToken}/accept", null);
+        var consumedResponse = await consumedClient.PostAsync($"/api/v1/invites/{consumedToken}/accept", null);
+        var fabricatedResponse = await fabricatedClient.PostAsync($"/api/v1/invites/{fabricatedToken}/accept", null);
+
+        expiredResponse.StatusCode.Should().Be(HttpStatusCode.Gone);
+        consumedResponse.StatusCode.Should().Be(HttpStatusCode.Gone);
+        fabricatedResponse.StatusCode.Should().Be(HttpStatusCode.Gone);
+
+        var expiredBody = await expiredResponse.Content.ReadAsStringAsync();
+        var consumedBody = await consumedResponse.Content.ReadAsStringAsync();
+        var fabricatedBody = await fabricatedResponse.Content.ReadAsStringAsync();
+
+        // All three must surface the same opaque error code — no hint about token lifecycle state.
+        expiredBody.Should().Contain("invite.invalid");
+        consumedBody.Should().Contain("invite.invalid");
+        fabricatedBody.Should().Contain("invite.invalid");
+
+        // None of the bodies should reveal which specific failure path was triggered.
+        expiredBody.Should().NotContain("expired");
+        consumedBody.Should().NotContain("consumed");
+        fabricatedBody.Should().NotContain("fabricated");
+    }
+
+    [Fact]
     public async Task PostAcceptInvite_EmailMismatch_Returns422()
     {
         var adminId = await _factory.GetSeededAdminIdAsync();
