@@ -33,7 +33,7 @@ public static class InviteEndpoints
                 if (string.IsNullOrEmpty(googleEmail) || string.IsNullOrEmpty(googleSub))
                     return Results.Unauthorized();
 
-                var user = await invitationService.AcceptAsync(
+                var (user, boardId) = await invitationService.AcceptAsync(
                     token, googleEmail, googleSub, displayName!, ct);
 
                 // AcceptAsync has committed — user is now a registered Standard user.
@@ -63,11 +63,11 @@ public static class InviteEndpoints
                             user.Id);
                 }
 
-                return Results.Ok(UserTransforms.ToDto(user));
+                return Results.Ok(new AcceptInviteResponseDto(UserTransforms.ToDto(user), boardId));
             })
             .WithName("AcceptInvite")
             .WithSummary("Accept an invitation and become a registered user")
-            .Produces<CurrentUserDto>(200)
+            .Produces<AcceptInviteResponseDto>(200)
             .ProducesProblem(410)
             .ProducesProblem(422)
             .RequireAuthorization()
@@ -117,7 +117,7 @@ public static class InviteEndpoints
                     currentUser.UserId.Value,
                     callerRole,
                     frontendBaseUrl,
-                    ct);
+                    cancellationToken: ct);
 
                 return isNew
                     ? Results.Created((string?)null, response)

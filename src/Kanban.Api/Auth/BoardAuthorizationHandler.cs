@@ -17,12 +17,16 @@ public sealed class BoardAuthorizationHandler(
         BoardMembershipRequirement requirement,
         BoardContext resource)
     {
-        if (!_currentUserService.IsRegistered)
+        if (!_currentUserService.IsRegistered || !_currentUserService.UserId.HasValue)
             return;
 
-        var resolvedRole = resource.ResolvedRole;
+        var role = await _boardMemberRepository.FindRoleAsync(
+            resource.BoardId, _currentUserService.UserId.Value);
 
-        if (MeetsRequirement(requirement.Operation, resolvedRole))
+        if (role is null)
+            return;
+
+        if (MeetsRequirement(requirement.Operation, role.Value))
             context.Succeed(requirement);
     }
 

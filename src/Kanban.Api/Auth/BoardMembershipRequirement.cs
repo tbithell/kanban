@@ -13,4 +13,4 @@ public sealed class BoardMembershipRequirement : IAuthorizationRequirement
     public string Operation { get; }
 }
 
-public readonly record struct BoardContext(Guid BoardId, BoardRole ResolvedRole);
+public readonly record struct BoardContext(Guid BoardId);

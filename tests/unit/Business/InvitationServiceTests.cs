@@ -18,13 +18,14 @@ public sealed class InvitationServiceTests
     private static InvitationService CreateSut(
         FakeInvitationRepository invitationRepo,
         FakeUserRepository userRepo,
-        FakeAuthEventRepository authEventRepo)
+        FakeAuthEventRepository authEventRepo,
+        FakeBoardMemberRepository? boardMemberRepo = null)
     {
         var connection = new SqliteConnection("Data Source=:memory:");
         connection.Open();
         return new InvitationService(
-            userRepo, invitationRepo, authEventRepo, connection, new FakeDbConnectionFactory(),
-            NullLogger<InvitationService>.Instance);
+            userRepo, invitationRepo, authEventRepo, boardMemberRepo ?? new FakeBoardMemberRepository(),
+            connection, new FakeDbConnectionFactory(), NullLogger<InvitationService>.Instance);
     }
 
     private sealed class FakeDbConnectionFactory : IDbConnectionFactory
@@ -134,7 +135,7 @@ public sealed class InvitationServiceTests
         var authEventRepo = new FakeAuthEventRepository();
         var sut = CreateSut(invitationRepo, userRepo, authEventRepo);
 
-        var user = await sut.AcceptAsync(
+        var (user, boardId) = await sut.AcceptAsync(
             rawToken: "validrawtoken",
             googleEmail: "invitee@example.com",
             googleSub: "google-sub-123",
@@ -143,6 +144,7 @@ public sealed class InvitationServiceTests
         user.Email.Should().Be("invitee@example.com");
         user.SystemRole.Should().Be(SystemRole.Standard);
         user.GoogleSub.Should().Be("google-sub-123");
+        boardId.Should().BeNull();
         userRepo.InsertedUsers.Should().ContainSingle();
         var acceptedEvt = authEventRepo.RecordedEvents.Should().ContainSingle(e =>
             e.EventType == AuthEventType.InvitationAccepted).Subject;
@@ -304,5 +306,31 @@ public sealed class InvitationServiceTests
             RecordedEvents.Add(authEvent);
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FakeBoardMemberRepository : IBoardMemberRepository
+    {
+        public List<BoardMember> InsertedMembers { get; } = [];
+
+        public Task<BoardRole?> FindRoleAsync(Guid boardId, Guid userId, IDbTransaction? tx = null)
+            => Task.FromResult<BoardRole?>(null);
+
+        public Task<int> CountOwnersAsync(Guid boardId, IDbTransaction? tx = null)
+            => Task.FromResult(0);
+
+        public Task InsertAsync(BoardMember member, IDbTransaction tx)
+        {
+            InsertedMembers.Add(member);
+            return Task.CompletedTask;
+        }
+
+        public Task DeleteAsync(Guid boardId, Guid userId, IDbTransaction tx)
+            => Task.CompletedTask;
+
+        public Task UpdateRoleAsync(Guid boardId, Guid userId, BoardRole newRole, IDbTransaction tx)
+            => Task.CompletedTask;
+
+        public Task<IReadOnlyList<BoardMember>> FindAllForBoardAsync(Guid boardId, IDbTransaction? tx = null)
+            => Task.FromResult<IReadOnlyList<BoardMember>>([]);
     }
 }
