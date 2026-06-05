@@ -2303,3 +2303,20 @@ All 70 unit tests pass.
 
 **User:** perfect, /session-update and then /speckit-git-commit
 
+
+## Session 34
+
+**User:** run all integration tests
+
+**Claude:** 7 failures, all 500s on `InviteEndpointTests`. Root cause: Dapper cannot set `init`-only properties after constructing via a parameterized constructor — the new `board_id`/`board_role` columns were being selected but Dapper's IL emitter couldn't push values into the `init`-only `BoardId`/`BoardRole` properties on `Invitation` after construction.
+
+Fixed by adding `boardId` and `boardRole` to the `Invitation` constructor so Dapper uses full constructor injection for all columns. Updated `IssueAsync` to pass those as named constructor args rather than using the object initializer.
+
+Also updated the integration test `PostAcceptInvite_ValidToken_Returns200WithCurrentUserDto` (renamed to `…Returns200WithAcceptInviteResponseDto`) to read `AcceptInviteResponseDto` and assert `body.User.Email`, `body.User.SystemRole`, and `body.BoardId is null`.
+
+35/35 integration tests + 70/70 unit tests pass. Committed as `1fbec40`.
+
+---
+
+**User:** /session-update
+
