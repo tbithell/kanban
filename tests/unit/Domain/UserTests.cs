@@ -1,4 +1,5 @@
 using FluentAssertions;
+using FluentValidation;
 using Kanban.Domain.Entities;
 using Kanban.Domain.Enums;
 
@@ -11,30 +12,30 @@ public class UserTests
             null, DateTimeOffset.UtcNow, null);
 
     [Fact]
-    public void Constructor_WhenIdIsEmpty_ThrowsArgumentException()
+    public void Constructor_WhenIdIsEmpty_ThrowsValidationException()
     {
         Guid id = Guid.Empty;
         var act = () => new User(id, "a@b.com", "Name", SystemRole.Standard,
             null, DateTimeOffset.UtcNow, null);
-        act.Should().Throw<ArgumentException>();
+        act.Should().Throw<ValidationException>();
     }
 
     [Fact]
-    public void Constructor_WhenEmailIsEmpty_ThrowsArgumentException()
+    public void Constructor_WhenEmailIsEmpty_ThrowsValidationException()
     {
         string email = string.Empty;
         var act = () => new User(Guid.NewGuid(), email, "Name", SystemRole.Standard,
             null, DateTimeOffset.UtcNow, null);
-        act.Should().Throw<ArgumentException>();
+        act.Should().Throw<ValidationException>();
     }
 
     [Fact]
-    public void Constructor_WhenDisplayNameIsEmpty_ThrowsArgumentException()
+    public void Constructor_WhenDisplayNameIsEmpty_ThrowsValidationException()
     {
         string displayName = string.Empty;
         var act = () => new User(Guid.NewGuid(), "a@b.com", displayName, SystemRole.Standard,
             null, DateTimeOffset.UtcNow, null);
-        act.Should().Throw<ArgumentException>();
+        act.Should().Throw<ValidationException>();
     }
 
     [Fact]
@@ -47,12 +48,12 @@ public class UserTests
     }
 
     [Fact]
-    public void LinkGoogleIdentity_WhenSubIsEmpty_ThrowsArgumentException()
+    public void LinkGoogleIdentity_WhenSubIsEmpty_ThrowsValidationException()
     {
         var user = ValidUser();
         string googleSub = string.Empty;
         var act = () => user.LinkGoogleIdentity(googleSub);
-        act.Should().Throw<ArgumentException>();
+        act.Should().Throw<ValidationException>();
     }
 
     [Fact]

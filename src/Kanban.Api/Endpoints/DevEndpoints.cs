@@ -1,6 +1,8 @@
 using System.Data;
 using System.Security.Claims;
 using Dapper;
+using FluentValidation;
+using FluentValidation.Results;
 using Kanban.Api.Options;
 using Kanban.DataAccess.Interfaces;
 using Kanban.Domain.Enums;
@@ -101,6 +103,18 @@ internal static class DevEndpoints
             })
             .WithName("DevSeedInvitation")
             .WithSummary("[DEV ONLY] Seed an invitation record for Playwright testing")
+            .AllowAnonymous();
+
+        routes.MapGet("/dev/test/throw-validation", () =>
+            {
+                var failures = new[] { new ValidationFailure("TestField", "Must not be empty") };
+                throw new ValidationException("Validation failed", failures);
+#pragma warning disable CS0162
+                return Results.Ok();
+#pragma warning restore CS0162
+            })
+            .WithName("DevTestThrowValidation")
+            .WithSummary("[DEV ONLY] Throw ValidationException — error handler mapping test only")
             .AllowAnonymous();
     }
 

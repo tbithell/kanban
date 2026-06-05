@@ -20,6 +20,41 @@ complete before any user story phase begins.
 
 ---
 
+## Phase 0: Validation Unification Prerequisite (US6)
+
+**Purpose**: Replace the bespoke `Verify` guard-clause class with FluentValidation across all
+non-API layers. MUST complete before any US1–US5 service work — all new services in Phases 1–8
+adopt FluentValidation from day one. TDD order: update tests to assert `ValidationException`
+(RED commit) → update source to use FluentValidation (GREEN commit) → delete `Verify.cs`.
+
+**Scope**: 146 `Verify.` call sites across 20 source files; 36 test assertions in 4 test files.
+
+**Setup**
+
+- [ ] T088 Add `FluentValidation` NuGet package reference to `src/Kanban.Domain/Kanban.Domain.csproj`, `src/Kanban.Business/Kanban.Business.csproj`, `src/Kanban.DataAccess/Kanban.DataAccess.csproj`, and `src/Kanban.AntiCorruption/Kanban.AntiCorruption.csproj` — match the exact version already in `src/Kanban.Api/Kanban.Api.csproj`; run `dotnet restore` to confirm
+
+**Tests — RED commits first (must fail before implementation)**
+
+- [ ] T089 [US6] Update `tests/unit/Domain/UserTests.cs` (8 assertions), `tests/unit/Domain/InvitationTests.cs` (2), and `tests/unit/Domain/InvitationTokenTests.cs` (2) — change every `ArgumentNullException`/`ArgumentException` assertion to `FluentValidation.ValidationException`; add `using FluentValidation` where needed; COMMIT RED (tests fail because entities still throw via `Verify`)
+- [ ] T090 [US6] Delete `tests/unit/Domain/VerifyTests.cs` — this file tests the `Verify` class itself; when `Verify.cs` is deleted the test has no subject; behavior coverage is now carried by the entity tests updated in T089; COMMIT alongside T089 red commit
+- [ ] T091 [US6] Add integration test `tests/integration/Api/ValidationExceptionMappingTests.cs` — POST to an endpoint that reaches a service method, stub or arrange an invalid argument to trigger a `ValidationException` from the Business layer, assert `422` HTTP status and Problem Details body with `"code": "validation.failed"`; COMMIT RED (handler not yet wired)
+
+**Implementation — GREEN commits**
+
+- [ ] T092 [US6] Update `src/Kanban.Api/ExceptionHandlers/DomainExceptionHandler.cs` — add a `FluentValidation.ValidationException` catch case before the catch-all; map to `422 Unprocessable Entity`; set `code: "validation.failed"` and populate an `errors` array from `exception.Errors` (field name + message per entry); COMMIT GREEN for T091
+- [ ] T093 [P] [US6] Replace `Verify.That` calls in `src/Kanban.Domain/Entities/Board.cs` (4 calls), `src/Kanban.Domain/Entities/Lane.cs` (6), `src/Kanban.Domain/Entities/Card.cs` (10), `src/Kanban.Domain/Entities/BoardMember.cs` (3) — use `new InlineValidator<T> { v => v.RuleFor(...).NotEmpty() }.ValidateAndThrow(value)` for string/Guid/int params; use `ArgumentNullException.ThrowIfNull()` for injected service references (programming-error guard, not user-input)
+- [ ] T094 [P] [US6] Replace `Verify.That` calls in `src/Kanban.Domain/Entities/User.cs` (4), `src/Kanban.Domain/Entities/Invitation.cs` (6), `src/Kanban.Domain/Entities/CardAssignee.cs` (3), `src/Kanban.Domain/ValueObjects/InvitationToken.cs` (1) — same inline validator pattern
+- [ ] T095 [P] [US6] Replace `Verify.That` calls in `src/Kanban.Business/Services/InvitationService.cs` (14) and `src/Kanban.Business/Services/AuthService.cs` (9) — for each public method, create or inline a `AbstractValidator<(param1, param2, ...)>` (or a named record + validator) and call `.ValidateAndThrow()`; create `src/Kanban.Business/Validators/` directory for named validator classes
+- [ ] T096 [P] [US6] Replace `Verify.That` calls in `src/Kanban.Business/Transforms/InvitationTransforms.cs` (5) and `src/Kanban.Business/Transforms/UserTransforms.cs` (1) — use `InlineValidator<T>`
+- [ ] T097 [P] [US6] Replace `Verify.That` calls in `src/Kanban.DataAccess/Repositories/LaneRepository.cs` (15), `src/Kanban.DataAccess/Repositories/CardRepository.cs` (15), `src/Kanban.DataAccess/Repositories/InvitationRepository.cs` (13), `src/Kanban.DataAccess/Repositories/BoardMemberRepository.cs` (13) — for primitive params (`string`, `Guid`) use `InlineValidator<string>` / `InlineValidator<Guid>`; for IDbConnection / IDbTransaction params use `ArgumentNullException.ThrowIfNull()`
+- [ ] T098 [P] [US6] Replace `Verify.That` calls in `src/Kanban.DataAccess/Repositories/UserRepository.cs` (11), `src/Kanban.DataAccess/Repositories/BoardRepository.cs` (9), `src/Kanban.DataAccess/Repositories/AuthEventRepository.cs` (3), and `src/Kanban.AntiCorruption/Adapters/GoogleIdentityAdapter.cs` (1) — same inline validator pattern
+- [ ] T099 [US6] Delete `src/Kanban.Domain/Verify.cs` — all 146 usages replaced; run `dotnet build` from repo root and confirm zero errors and zero warnings; fix any stray references before committing
+- [ ] T100 [US6] Run `dotnet test tests/unit/ tests/integration/`; confirm all tests green; confirm zero references to `ParameterVerifier<T>`, `StringVerifierExtensions`, `NumberVerifierExtensions`, `ComparableVerifierExtensions`, `EnumerableVerifierExtensions` in compiled output via `grep -rn "ParameterVerifier\|Verify\." src/`; COMMIT GREEN
+
+**Checkpoint**: `dotnet build` 0 errors / 0 warnings; all unit and integration tests pass; no `Verify.` references remain anywhere in `src/`.
+
+---
+
 ## Phase 1: Setup (Shared Infrastructure)
 
 **Purpose**: Database schema, domain entities, contracts, and test builders — the raw material
@@ -226,7 +261,7 @@ is refused — either by the UI hiding the control or by returning 403 from the 
 **Purpose**: Final validation across all stories — accessibility audit, bundle size, and quickstart
 checklist confirmation.
 
-- [ ] T082 [P] Audit all new C# public methods for `Verify.That` parameter guards; audit all new domain entities for correct `Verify.That` usage per constitution pattern; fix any gaps by running `dotnet build` with zero warnings
+- [ ] T082 [P] Audit all new C# public methods added in Phases 1–7 for FluentValidation guard coverage (constitution v1.8.0 pattern — `InlineValidator<T>` or `AbstractValidator<T>` with `.ValidateAndThrow()` on non-nullable non-optional params); fix any gaps; run `dotnet build` with zero warnings
 - [ ] T083 [P] Verify WCAG AA compliance — `DndContext` `announcements` prop covers pick-up/move/drop/cancel messages; `aria-describedby` present on all draggable items; `getByRole('heading', { level: 1 })` present on `BoardListPage` and `BoardPage` (RTL assertion); keyboard-only Playwright test completes successfully
 - [ ] T084 [P] Run frontend production build and verify initial JS bundle ≤ 300 KB gzipped using `npm run build` in `src/Kanban.Web/`; confirm `BoardPage` and board list split into separate route chunks via `React.lazy()`
 - [ ] T085 Run all four test layers and confirm 100% green — `dotnet test tests/unit/`, `dotnet test tests/integration/`, `npm test -- --run` in `src/Kanban.Web/`, `npx playwright test` in `tests/e2e/`; automated coverage must be ≥ 90%
@@ -239,7 +274,8 @@ checklist confirmation.
 
 ### Phase Dependencies
 
-- **Setup (Phase 1)**: No dependencies — start immediately
+- **Validation Unification (Phase 0)**: No dependencies — start immediately; BLOCKS all other phases (FluentValidation must be the validation mechanism before any new service code is written)
+- **Setup (Phase 1)**: Depends on Phase 0 checkpoint passing
 - **Foundational (Phase 2)**: Depends on Phase 1 — BLOCKS all user story phases
 - **US1 (Phase 3)**: Depends on Phase 2 — no story dependencies
 - **US2 (Phase 4)**: Depends on Phase 2 — no story dependencies (US1 board+lane infrastructure needed in DB, not code)
@@ -251,19 +287,20 @@ checklist confirmation.
 ### User Story Dependencies
 
 ```
-Phase 1 (Setup)
-    └── Phase 2 (Foundational)
-            ├── Phase 3 (US1) ──┐
-            ├── Phase 4 (US2) ──┤
-            │                   ▼
-            │           Phase 5 (US3) ── depends on US1 Lane + US2 CardItem components
-            └── Phase 6 (US4)
-                        │
-                        ▼
-                Phase 7 (US5) ── depends on all UI components existing
-                        │
-                        ▼
-                Phase 8 (Polish)
+Phase 0 (Validation Unification — US6) ← start here; BLOCKS everything
+    └── Phase 1 (Setup)
+            └── Phase 2 (Foundational)
+                    ├── Phase 3 (US1) ──┐
+                    ├── Phase 4 (US2) ──┤
+                    │                   ▼
+                    │           Phase 5 (US3) ── depends on US1 Lane + US2 CardItem components
+                    └── Phase 6 (US4)
+                                │
+                                ▼
+                        Phase 7 (US5) ── depends on all UI components existing
+                                │
+                                ▼
+                        Phase 8 (Polish)
 ```
 
 ### Within Each User Story
@@ -341,6 +378,7 @@ With two developers after Phase 2 completes:
 
 | Phase | Story | Tasks | Test Files |
 |-------|-------|-------|------------|
+| 0 — Validation Unification | US6 | T088–T100 (13) | UserTests, InvitationTests, InvitationTokenTests, ValidationExceptionMappingTests |
 | 1 — Setup | — | T001–T015 (15) | — |
 | 2 — Foundational | — | T016–T030 (15) | — |
 | 3 — US1 Board + Lane | P1 | T031–T047 (17) | BoardServiceTests, LaneServiceTests, BoardEndpointTests, LaneEndpointTests, BoardManagementTests, BoardListPage.test, BoardPage.test |
@@ -349,7 +387,7 @@ With two developers after Phase 2 completes:
 | 6 — US4 Membership | P2 | T069–T079 (11) | BoardMembershipServiceTests, BoardMemberEndpointTests, BoardMembershipTests, BoardMembersPanel.test |
 | 7 — US5 Viewer | P3 | T080–T081 (2) | BoardManagementTests (extended) |
 | 8 — Polish | — | T082–T087 (6) | All layers |
-| **Total** | | **87 tasks** | **16 test files** |
+| **Total** | | **100 tasks** | **20 test files** |
 
-**MVP scope**: Phases 1–5 (US1 + US2 + US3) = 68 tasks deliver a fully functional Kanban board.
+**MVP scope**: Complete Phase 0 first (US6 prerequisite), then Phases 1–5 (US1 + US2 + US3) = 81 tasks deliver a fully functional Kanban board.
 Phases 6–8 add collaboration and complete the spec.
