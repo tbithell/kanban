@@ -115,9 +115,14 @@ builder.Services.AddScoped<GoogleIdentityAdapter>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthEventRepository, AuthEventRepository>();
 builder.Services.AddScoped<IInvitationRepository, InvitationRepository>();
+builder.Services.AddScoped<IBoardRepository, BoardRepository>();
+builder.Services.AddScoped<ILaneRepository, LaneRepository>();
+builder.Services.AddScoped<ICardRepository, CardRepository>();
+builder.Services.AddScoped<IBoardMemberRepository, BoardMemberRepository>();
 builder.Services.AddValidatorsFromAssemblyContaining<IssueInviteRequestValidator>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthorizationHandler, RegisteredUserHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, BoardAuthorizationHandler>();
 
 builder.Services.AddAuthentication(options =>
     {

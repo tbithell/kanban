@@ -22,6 +22,8 @@ public static class DapperConfiguration
             SqlMapper.AddTypeHandler(new NullableDateTimeOffsetHandler());
             SqlMapper.AddTypeHandler(new SystemRoleHandler());
             SqlMapper.AddTypeHandler(new AuthEventTypeHandler());
+            SqlMapper.AddTypeHandler(new BoardRoleHandler());
+            SqlMapper.AddTypeHandler(new NullableBoardRoleHandler());
             _registered = true;
         }
     }
@@ -77,5 +79,22 @@ public static class DapperConfiguration
 
         public override void SetValue(IDbDataParameter parameter, AuthEventType value)
             => parameter.Value = value.ToString();
+    }
+
+    private sealed class BoardRoleHandler : SqlMapper.TypeHandler<BoardRole>
+    {
+        public override BoardRole Parse(object value) => Enum.Parse<BoardRole>((string)value);
+
+        public override void SetValue(IDbDataParameter parameter, BoardRole value)
+            => parameter.Value = value.ToString();
+    }
+
+    private sealed class NullableBoardRoleHandler : SqlMapper.TypeHandler<BoardRole?>
+    {
+        public override BoardRole? Parse(object value)
+            => value is null or DBNull ? null : Enum.Parse<BoardRole>((string)value);
+
+        public override void SetValue(IDbDataParameter parameter, BoardRole? value)
+            => parameter.Value = value.HasValue ? value.Value.ToString() : (object)DBNull.Value;
     }
 }

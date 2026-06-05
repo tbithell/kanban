@@ -2045,3 +2045,278 @@ All done. Here's the full structure created:
 Each sub-issue has the acceptance scenarios from the spec, a task checklist (RED/GREEN split), phase dependencies, and a definition of done. They're wired as GitHub sub-issues of #9 so progress rolls up automatically.
 
 ---
+
+## Session 31
+
+**User:** there were some conflicts due to github suggested changes, check the most recent commit for any issues
+
+**Claude:** The merge of `main` into `002-kanban-core` (commit `277a7eb`) resolved a conflict in `AuthEndpoints.cs` by taking the incoming version of the redirect logic, which discarded the `SafeRedirectUri` call introduced in `ea26400`. The private method was still present in the file but was no longer called — leaving the open-redirect vulnerability back in place while appearing to compile cleanly.
+
+Restored the `SafeRedirectUri(returnUrl, frontendBase, corsOptions.Value.AllowedOrigins)` call at the conflict site, verified the build, and committed as `c452fe3`:
+
+```
+fix(security): restore open-redirect fix reverted by merge conflict resolution
+
+The merge of main into 002-kanban-core resolved the conflict in AuthEndpoints.cs
+by taking the incoming (main) version of the redirect logic, which discarded the
+SafeRedirectUri call introduced in ea26400. The private method was retained but
+was no longer called, leaving the open-redirect vulnerability in place.
+```
+
+Pushed to `origin/002-kanban-core`.
+
+Worth noting for future merges: when a conflict touches a security-critical call site, always verify the resolved version still calls the safe helper, not just that the helper still compiles.
+
+**User:** `/session-update`
+
+---
+
+## Session 32
+
+**User:** In 002-kanban-core there are a few stories that can be worked in parallel. I want to set up worktrees for this, do I have to do that in the cli or could I use multiple chat windows for?
+
+**Claude:** You need worktrees for true isolation — multiple chat windows without them would all edit the same files and conflict.
+
+You have two options:
+
+**Option 1 — CLI (most control)**
+Create worktrees manually, then open separate chat windows pointed at each directory:
+
+```bash
+# From repo root
+git worktree add ../kanban-story-boards -b 002-boards-service
+git worktree add ../kanban-story-lanes  -b 002-lanes-service
+git worktree add ../kanban-story-cards  -b 002-cards-service
+```
+
+Then open each worktree folder in a separate VS Code window or Claude Code chat. Each window works in complete isolation.
+
+**Option 2 — Claude Code native (less setup)**
+Use the `Agent` tool with `isolation: "worktree"` — it creates the worktree automatically, runs the agent, and returns the branch name. You'd spawn agents for each story and they run in parallel without CLI setup. This is best if you want Claude to drive each story end-to-end autonomously.
+
+**Recommendation**: For stories as substantial as board/lane/card services (each with 4 test layers), I'd go with Option 1 — create the worktrees yourself, open a chat window per worktree, and drive each story interactively. The `isolation: "worktree"` Agent approach works well for smaller scoped tasks but these stories are large enough you'll want to be in the loop on each one.
+
+Which stories were you thinking of parallelizing? That'll help me suggest how to split the worktrees cleanly.
+
+---
+
+**User:** OK let's make a plan to knock this out
+
+**Claude:** Good picture now. Here's the situation and a clean execution plan:
+
+**The constraint:** Phases 1 and 2 (Setup + Foundational, T001–T030) are sequential blockers — everything depends on them. No worktrees needed there yet; both phases are full of `[P]` tasks that Claude can batch in parallel within a single session.
+
+**The natural split point:** Once Phase 2 is done, the dependency graph gives you two independent tracks:
+
+```
+Phase 2 done
+    ├── Track A: US1 (boards + lanes) → US3 (DnD — builds on US1 Lane + US2 CardItem)
+    └── Track B: US2 (cards) → US4 (membership — fully independent service layer)
+
+Both tracks merge → US5 (viewer guards) → Phase 8 (polish)
+```
+
+**Proposed execution plan:**
+
+| Step | Work | Where |
+|------|------|-------|
+| 1 | Phase 1 + Phase 2 (T001–T030) | `002-kanban-core` (main worktree) |
+| 2 | Split worktrees | `git worktree add ../kanban-us1 -b 002-us1-boards-lanes` and `../kanban-us2 -b 002-us2-cards` |
+| 3 | Track A: US1 (T031–T047) | `002-us1` chat window |
+| 4 | Track B: US2 (T048–T059) | `002-us2` chat window |
+| 5 | Track A continues: US3 (T060–T068) | `002-us1` — depends on Lane + CardItem from Track B |
+| 6 | Track B continues: US4 (T069–T079) | `002-us2` |
+| 7 | Merge both tracks → US5 + Polish | `002-kanban-core` |
+
+**One wrinkle:** US3 needs `CardItem` from Track B (T055) to wrap it with `useSortable`. So Track A should wait on that one component before implementing T067. Everything else in US3 is independent.
+
+**Ready to start?** I can begin Phase 1 right now — T001–T015 are all independent file creations and I can batch most of them in parallel. Want me to kick that off?
+
+---
+
+**User:** ok, let's shelve that plan for now I may or may not do that, so add a .md doc with detailed instructions in the 002-kanban-core directory, then let's create a new branch and create a new story under feat(002) that we'll call Set Up and let's start working on Phase 1 and Phase 2
+
+**Claude:** Creating the GitHub story first.
+
+Created `specs/002-kanban-core/parallel-execution.md` with full worktree setup instructions, work order for both tracks, the CardItem sync point, merge guidance, and cleanup commands.
+
+Created branch `002-setup` from `002-kanban-core`.
+
+GitHub issue [#15](https://github.com/tbithell/kanban/issues/15) created: "feat(002): Set Up — Phase 1 & Phase 2 (Infrastructure + Foundational)".
+
+Now invoking `/speckit-implement` for Phase 1 and Phase 2.
+
+---
+
+**User:** ok first create a new set up story in github. Then /speckit-implement phase 1 and 2
+
+**Claude:** *[Ran speckit-implement skill for T001–T030 on branch 002-setup]*
+
+**Pre-hook**: Optional git commit hook present — committed `parallel-execution.md` before proceeding.
+
+**Checklists**: `requirements.md` — 16/16 complete ✓ PASS. All checklists passed.
+
+**Phase 1 (T001–T015) — executed in parallel batches:**
+
+- T001: Installed `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` in `src/Kanban.Web/`
+- T002–T005: Created SQLite and Postgres migrations `003_boards_lanes_cards.sql` and `004_extend_invitations.sql`
+- T006: `BoardRole` enum (Owner, Member, Viewer) in `src/Kanban.Domain/Enums/`
+- T007–T011: `Board`, `Lane`, `Card`, `BoardMember`, `CardAssignee` entities with `Verify.That` guards and domain methods
+- T012: Extended `Invitation` entity with nullable `BoardId` and `BoardRole` properties
+- T013: All 7 response DTOs: `BoardRoleDto`, `BoardSummaryDto`, `BoardDetailDto`, `LaneDto`, `CardDto`, `BoardMemberDto`, `AcceptInviteResponseDto`
+- T014: All 9 request DTOs: `CreateBoardRequest`, `CreateLaneRequest`, `RenameLaneRequest`, `MoveLaneRequest`, `CreateCardRequest`, `UpdateCardRequest`, `MoveCardRequest`, `InviteBoardMemberRequest`, `ChangeMemberRoleRequest`
+- T015: Test builders `BoardBuilder`, `LaneBuilder`, `CardBuilder`, `BoardMemberBuilder` in `tests/unit/Builders/`
+
+**Phase 1 checkpoint: ✅ Build succeeded, 0 warnings, 0 errors.**
+
+**Phase 2 (T016–T030) — executed in parallel batches:**
+
+- T016–T019: DataAccess interfaces `IBoardRepository`, `ILaneRepository`, `ICardRepository`, `IBoardMemberRepository`
+- T020–T023: `BoardRepository`, `LaneRepository`, `CardRepository`, `BoardMemberRepository` (Dapper + `IDbConnection`; no `RETURNING`; position-shift batch UPDATEs; enumeration prevention via INNER JOIN in `FindBoardForMemberAsync`)
+- T024: Business service interfaces `IBoardService`, `ILaneService`, `ICardService`, `IBoardMembershipService`
+- T025: Static transform classes `BoardTransforms`, `LaneTransforms`, `CardTransforms`, `BoardMemberTransforms`
+- T026: 9 FluentValidation validators for all new request DTOs
+- T027: `BoardOperations` static class with operation constants
+- T028: `BoardMembershipRequirement : IAuthorizationRequirement` + `BoardContext` readonly record struct
+- T029: `BoardAuthorizationHandler : AuthorizationHandler<BoardMembershipRequirement, BoardContext>` — operation-to-role mapping via switch expression
+- T030: DI registrations in `Program.cs` for all 4 new repositories and `BoardAuthorizationHandler`; `tasks.md` T001–T030 marked `[X]`
+
+**Phase 2 checkpoint: ✅ Build succeeded, 0 warnings, 0 errors.**
+
+Committed as `6557ec7`: `feat(002-setup): implement Phase 1 and Phase 2 — infrastructure and foundational layer` (63 files changed, 1564 insertions). Closes #15.
+
+**Phase 1 + Phase 2 complete.** T001–T030 all marked `[X]` in `tasks.md`. Ready to open a PR and split into user story branches per the parallel execution guide.
+
+**User:** `/session-update`
+
+---
+
+## Session 33
+
+**User:** *(session resumed after context compaction — `/code-review this branch` was interrupted mid-execution by `/compact`)*
+
+**Claude:** Now running the 7 finder angles in parallel: *(agents executed)*
+
+```json
+[
+  {
+    "file": "src/Kanban.Business/Services/InvitationService.cs",
+    "line": 162,
+    "summary": "AcceptAsync never inserts a board_members row when invitation.BoardId is non-null",
+    "failure_scenario": "Board owner invites alice@example.com. Alice accepts. User row is committed but no board_members row is created — Alice can authenticate but gets 404 on every board endpoint."
+  },
+  {
+    "file": "src/Kanban.Api/Endpoints/InviteEndpoints.cs",
+    "line": 66,
+    "summary": "MapAcceptEndpoint returns bare CurrentUserDto instead of AcceptInviteResponseDto",
+    "failure_scenario": "AcceptInviteResponseDto was created this session but is never instantiated. Frontend receives no boardId field — cannot redirect to the board after acceptance."
+  },
+  {
+    "file": "src/Kanban.Business/Services/InvitationService.cs",
+    "line": 100,
+    "summary": "IssueAsync has no boardId/boardRole parameters — board-scoped invitations cannot be issued",
+    "failure_scenario": "BoardMembershipService will call IssueAsync to send a board invite, but the interface and implementation accept no board context. Every invitation is issued with BoardId = null."
+  },
+  {
+    "file": "src/Kanban.Api/Auth/BoardAuthorizationHandler.cs",
+    "line": 12,
+    "summary": "_boardMemberRepository is injected but never called; handler trusts caller-supplied BoardContext.ResolvedRole",
+    "failure_scenario": "Any Business-layer service that constructs BoardContext with the wrong role passes authorization unchallenged."
+  },
+  {
+    "file": "src/Kanban.Business/Services/InvitationService.cs",
+    "line": 183,
+    "summary": "InsertAsync called unconditionally — existing user accepting a board invite hits a unique-constraint violation",
+    "failure_scenario": "Admin accepting a board invite → InsertAsync throws DB unique violation → unhandled 500 instead of ConflictException."
+  },
+  {
+    "file": "src/Kanban.DataAccess/Repositories/CardRepository.cs",
+    "line": 105,
+    "summary": "UpdatePositionAsync has no board_id guard — card can be silently moved to a lane on a different board",
+    "failure_scenario": "Crafted request supplies a laneId from board B; card disappears from board A."
+  },
+  {
+    "file": "src/Kanban.Business/Transforms/BoardMemberTransforms.cs",
+    "line": 13,
+    "summary": "BoardRole→BoardRoleDto switch duplicated verbatim from BoardTransforms.ToRoleDto",
+    "failure_scenario": "Adding a new role requires updating two switch expressions in two files."
+  },
+  {
+    "file": "src/Kanban.DataAccess/Repositories/BoardRepository.cs",
+    "line": 19,
+    "summary": "FindBoardForMemberAsync JOINs board_members but discards bm.role — every board endpoint then calls FindRoleAsync separately",
+    "failure_scenario": "Two DB round trips per board request where one JOIN would cover both."
+  }
+]
+```
+
+**Top 3 to fix before writing any service logic:**
+
+1. **`IssueAsync` / `AcceptAsync`** — the invitation pipeline is end-to-end broken for board-scoped invites.
+2. **`AcceptInviteResponseDto`** — the accept endpoint returns bare `CurrentUserDto`; `boardId` never reaches the frontend.
+3. **`BoardAuthorizationHandler`** — injected `IBoardMemberRepository` is dead code; role is trusted from caller.
+
+---
+
+**User:** that skill is doing more than what i was looking for I just want the changes that we've done in this session reviewed not the entire repo
+
+**Claude:** Got it — just the session's work. I already have all the finder output. Here are the verified findings from Phase 1 / Phase 2 (T001–T030): *(same JSON findings listed above)*
+
+**Top 3 to fix before writing any service logic:**
+
+1. **`IssueAsync` / `AcceptAsync`** — the invitation pipeline is end-to-end broken for board-scoped invites.
+2. **`AcceptInviteResponseDto`** — the accept endpoint returns bare `CurrentUserDto`; `boardId` never reaches the frontend.
+3. **`BoardAuthorizationHandler`** — injected `IBoardMemberRepository` is dead code; role is trusted from caller.
+
+---
+
+**User:** OK fix those things
+
+**Claude:** *(Read all affected files, then applied the following fixes:)*
+
+**Fix 1 — `BoardAuthorizationHandler` / `BoardContext`**:
+- `BoardContext` simplified from `(Guid BoardId, BoardRole ResolvedRole)` to `(Guid BoardId)`.
+- `HandleRequirementAsync` now calls `_boardMemberRepository.FindRoleAsync(resource.BoardId, _currentUserService.UserId.Value)` — the repository injection is no longer dead code.
+
+**Fix 2 — Board-scoped invitation pipeline (end-to-end)**:
+- `DapperConfiguration` registers `BoardRoleHandler` and `NullableBoardRoleHandler` so Dapper maps `board_role TEXT` to `BoardRole?`.
+- `InvitationRepository.InsertAsync` now persists `board_id`/`board_role`. Both `FindByTokenHashAsync` and `FindActiveByEmailAsync` now select those columns back.
+- `IInvitationService.IssueAsync` gains `Guid? boardId = null` and `BoardRole? boardRole = null` optional params. Admin guard only applies when `boardId is null`.
+- `InvitationService` constructor now takes `IBoardMemberRepository`.
+- `AcceptAsync` return type changed from `Task<User>` to `Task<(User User, Guid? BoardId)>`.
+- `AcceptAsync` now checks for already-registered user before `InsertAsync` (throws `ConflictException` instead of DB unique violation).
+- `AcceptAsync` inserts a `BoardMember` row inside the transaction when `invitation.BoardId.HasValue`.
+
+**Fix 3 — `InviteEndpoints`**:
+- Accept endpoint destructures `(user, boardId)` from `AcceptAsync` and returns `new AcceptInviteResponseDto(UserTransforms.ToDto(user), boardId)`.
+- `.Produces<CurrentUserDto>(200)` → `.Produces<AcceptInviteResponseDto>(200)`.
+- `IssueAsync` call site uses `cancellationToken: ct` named arg to avoid `ct` silently binding to the new `boardId` positional param.
+
+**Test updates** — `InvitationServiceTests`:
+- `CreateSut` now takes optional `FakeBoardMemberRepository` (default created if null).
+- `FakeBoardMemberRepository` added implementing full `IBoardMemberRepository`.
+- `AcceptAsync_ValidTokenMatchingEmail` updated: `var (user, boardId) = await sut.AcceptAsync(...)`, asserts `boardId.Should().BeNull()`.
+
+All 70 unit tests pass.
+
+---
+
+**User:** perfect, /session-update and then /speckit-git-commit
+
+
+## Session 34
+
+**User:** run all integration tests
+
+**Claude:** 7 failures, all 500s on `InviteEndpointTests`. Root cause: Dapper cannot set `init`-only properties after constructing via a parameterized constructor — the new `board_id`/`board_role` columns were being selected but Dapper's IL emitter couldn't push values into the `init`-only `BoardId`/`BoardRole` properties on `Invitation` after construction.
+
+Fixed by adding `boardId` and `boardRole` to the `Invitation` constructor so Dapper uses full constructor injection for all columns. Updated `IssueAsync` to pass those as named constructor args rather than using the object initializer.
+
+Also updated the integration test `PostAcceptInvite_ValidToken_Returns200WithCurrentUserDto` (renamed to `…Returns200WithAcceptInviteResponseDto`) to read `AcceptInviteResponseDto` and assert `body.User.Email`, `body.User.SystemRole`, and `body.BoardId is null`.
+
+35/35 integration tests + 70/70 unit tests pass. Committed as `1fbec40`.
+
+---
+
+**User:** /session-update
+

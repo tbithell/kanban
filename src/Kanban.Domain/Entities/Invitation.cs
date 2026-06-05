@@ -1,3 +1,5 @@
+using Kanban.Domain.Enums;
+
 namespace Kanban.Domain.Entities;
 
 public sealed class Invitation
@@ -10,6 +12,8 @@ public sealed class Invitation
     public DateTimeOffset ExpiresAt { get; }
     public DateTimeOffset? ConsumedAt { get; private set; }
     public Guid? ConsumedByUserId { get; private set; }
+    public Guid? BoardId { get; init; }
+    public BoardRole? BoardRole { get; init; }
 
     public bool IsExpired => DateTimeOffset.UtcNow > ExpiresAt;
     public bool IsConsumed => ConsumedAt.HasValue;
@@ -17,7 +21,8 @@ public sealed class Invitation
 
     public Invitation(Guid id, string email, Guid issuedByUserId, string tokenHash,
                       DateTimeOffset issuedAt, DateTimeOffset expiresAt,
-                      DateTimeOffset? consumedAt, Guid? consumedByUserId)
+                      DateTimeOffset? consumedAt, Guid? consumedByUserId,
+                      Guid? boardId = null, BoardRole? boardRole = null)
     {
         Verify.That(id).IsNotDefault();
         Verify.That(email).IsNotNull().IsNotEmpty();
@@ -32,6 +37,8 @@ public sealed class Invitation
         ExpiresAt = expiresAt;
         ConsumedAt = consumedAt;
         ConsumedByUserId = consumedByUserId;
+        BoardId = boardId;
+        BoardRole = boardRole;
     }
 
     public bool EmailMatches(string googleEmail)

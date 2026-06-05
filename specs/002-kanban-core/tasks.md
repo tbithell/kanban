@@ -25,21 +25,21 @@ complete before any user story phase begins.
 **Purpose**: Database schema, domain entities, contracts, and test builders — the raw material
 every user story depends on. No business logic here; these are data structures only.
 
-- [ ] T001 Install dnd-kit packages: run `npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities` in `src/Kanban.Web/`
-- [ ] T002 [P] Create SQLite migration 003 — boards, board_members, lanes, cards, card_assignees tables with indexes and cascade rules — in `src/Kanban.Data/migrations/sqlite/003_boards_lanes_cards.sql` (use schema from data-model.md exactly)
-- [ ] T003 [P] Create Postgres migration 003 (identical SQL — all syntax is ANSI-compatible) in `src/Kanban.Data/migrations/postgres/003_boards_lanes_cards.sql`
-- [ ] T004 [P] Create SQLite migration 004 — add nullable `board_id` and `board_role` columns to `invitations` — in `src/Kanban.Data/migrations/sqlite/004_extend_invitations.sql`
-- [ ] T005 [P] Create Postgres migration 004 (identical SQL) in `src/Kanban.Data/migrations/postgres/004_extend_invitations.sql`
-- [ ] T006 [P] Create `BoardRole` enum (`Owner`, `Member`, `Viewer`) in `src/Kanban.Domain/Enums/BoardRole.cs`
-- [ ] T007 [P] Create `Board` aggregate root entity with `Verify.That` guards and `Rename(string)` method in `src/Kanban.Domain/Entities/Board.cs` (see data-model.md for signature)
-- [ ] T008 [P] Create `Lane` aggregate root entity with `Verify.That` guards, `Rename(string)`, and `MoveTo(int)` (increments `Version`) in `src/Kanban.Domain/Entities/Lane.cs`
-- [ ] T009 [P] Create `Card` aggregate root entity with `Verify.That` guards, `Update(...)`, and `MoveTo(Guid, int, DateTimeOffset)` (increments `Version`) in `src/Kanban.Domain/Entities/Card.cs`
-- [ ] T010 [P] Create `BoardMember` entity with `Verify.That` guards and `ChangeRole(BoardRole)` in `src/Kanban.Domain/Entities/BoardMember.cs`
-- [ ] T011 [P] Create `CardAssignee` entity (data model only — no service in this feature) in `src/Kanban.Domain/Entities/CardAssignee.cs`
-- [ ] T012 [P] Extend `Invitation` entity with `public Guid? BoardId { get; init; }` and `public BoardRole? BoardRole { get; init; }` in `src/Kanban.Domain/Entities/Invitation.cs`
-- [ ] T013 [P] Create all response DTOs in `src/Kanban.Contracts/`: `BoardRoleDto.cs` (enum), `BoardSummaryDto.cs`, `BoardDetailDto.cs`, `LaneDto.cs`, `CardDto.cs`, `BoardMemberDto.cs`, `AcceptInviteResponseDto.cs` (wraps `CurrentUserDto` + `Guid? BoardId`) — use shapes from contracts/dtos.md
-- [ ] T014 [P] Create all request DTOs in `src/Kanban.Contracts/`: `CreateBoardRequest.cs`, `CreateLaneRequest.cs`, `RenameLaneRequest.cs`, `MoveLaneRequest.cs`, `CreateCardRequest.cs`, `UpdateCardRequest.cs`, `MoveCardRequest.cs`, `InviteBoardMemberRequest.cs`, `ChangeMemberRoleRequest.cs` — use shapes from contracts/dtos.md
-- [ ] T015 [P] Create test data builders in `tests/unit/Builders/`: `BoardBuilder.cs`, `LaneBuilder.cs`, `CardBuilder.cs`, `BoardMemberBuilder.cs` — each with a static factory method (e.g., `ABoard()`), fluent setters, and `.Build()` returning a valid entity with sensible defaults (see constitution Test Data Builders section)
+- [X] T001 Install dnd-kit packages: run `npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities` in `src/Kanban.Web/`
+- [X] T002 [P] Create SQLite migration 003 — boards, board_members, lanes, cards, card_assignees tables with indexes and cascade rules — in `src/Kanban.Data/migrations/sqlite/003_boards_lanes_cards.sql` (use schema from data-model.md exactly)
+- [X] T003 [P] Create Postgres migration 003 (identical SQL — all syntax is ANSI-compatible) in `src/Kanban.Data/migrations/postgres/003_boards_lanes_cards.sql`
+- [X] T004 [P] Create SQLite migration 004 — add nullable `board_id` and `board_role` columns to `invitations` — in `src/Kanban.Data/migrations/sqlite/004_extend_invitations.sql`
+- [X] T005 [P] Create Postgres migration 004 (identical SQL) in `src/Kanban.Data/migrations/postgres/004_extend_invitations.sql`
+- [X] T006 [P] Create `BoardRole` enum (`Owner`, `Member`, `Viewer`) in `src/Kanban.Domain/Enums/BoardRole.cs`
+- [X] T007 [P] Create `Board` aggregate root entity with `Verify.That` guards and `Rename(string)` method in `src/Kanban.Domain/Entities/Board.cs` (see data-model.md for signature)
+- [X] T008 [P] Create `Lane` aggregate root entity with `Verify.That` guards, `Rename(string)`, and `MoveTo(int)` (increments `Version`) in `src/Kanban.Domain/Entities/Lane.cs`
+- [X] T009 [P] Create `Card` aggregate root entity with `Verify.That` guards, `Update(...)`, and `MoveTo(Guid, int, DateTimeOffset)` (increments `Version`) in `src/Kanban.Domain/Entities/Card.cs`
+- [X] T010 [P] Create `BoardMember` entity with `Verify.That` guards and `ChangeRole(BoardRole)` in `src/Kanban.Domain/Entities/BoardMember.cs`
+- [X] T011 [P] Create `CardAssignee` entity (data model only — no service in this feature) in `src/Kanban.Domain/Entities/CardAssignee.cs`
+- [X] T012 [P] Extend `Invitation` entity with `public Guid? BoardId { get; init; }` and `public BoardRole? BoardRole { get; init; }` in `src/Kanban.Domain/Entities/Invitation.cs`
+- [X] T013 [P] Create all response DTOs in `src/Kanban.Contracts/`: `BoardRoleDto.cs` (enum), `BoardSummaryDto.cs`, `BoardDetailDto.cs`, `LaneDto.cs`, `CardDto.cs`, `BoardMemberDto.cs`, `AcceptInviteResponseDto.cs` (wraps `CurrentUserDto` + `Guid? BoardId`) — use shapes from contracts/dtos.md
+- [X] T014 [P] Create all request DTOs in `src/Kanban.Contracts/`: `CreateBoardRequest.cs`, `CreateLaneRequest.cs`, `RenameLaneRequest.cs`, `MoveLaneRequest.cs`, `CreateCardRequest.cs`, `UpdateCardRequest.cs`, `MoveCardRequest.cs`, `InviteBoardMemberRequest.cs`, `ChangeMemberRoleRequest.cs` — use shapes from contracts/dtos.md
+- [X] T015 [P] Create test data builders in `tests/unit/Builders/`: `BoardBuilder.cs`, `LaneBuilder.cs`, `CardBuilder.cs`, `BoardMemberBuilder.cs` — each with a static factory method (e.g., `ABoard()`), fluent setters, and `.Build()` returning a valid entity with sensible defaults (see constitution Test Data Builders section)
 
 **Checkpoint**: Domain layer and contracts compile; migrations present; builders ready. No business logic yet.
 
@@ -52,21 +52,21 @@ and DI registration. MUST be complete before any user story work begins.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T016 [P] Create `IBoardRepository` interface (`FindBoardForMemberAsync`, `FindBoardsForUserAsync`, `CreateAsync`, `ExistsWithNameAsync`, `DeleteAsync`) in `src/Kanban.DataAccess/Interfaces/IBoardRepository.cs`
-- [ ] T017 [P] Create `ILaneRepository` interface (`FindByBoardAsync`, `FindByIdAsync`, `CreateAsync`, `UpdateNameAsync`, `UpdatePositionAsync`, `ShiftPositionsAsync`, `DeleteAsync`, `CountInBoardAsync`) in `src/Kanban.DataAccess/Interfaces/ILaneRepository.cs`
-- [ ] T018 [P] Create `ICardRepository` interface (`FindByLaneAsync`, `FindByIdAsync`, `CreateAsync`, `UpdateAsync`, `UpdatePositionAsync`, `ShiftPositionsInLaneAsync`, `DeleteAsync`, `CountInLaneAsync`) in `src/Kanban.DataAccess/Interfaces/ICardRepository.cs`
-- [ ] T019 [P] Create `IBoardMemberRepository` interface (`FindRoleAsync`, `CountOwnersAsync`, `AddAsync`, `RemoveAsync`, `UpdateRoleAsync`, `FindAllForBoardAsync`) in `src/Kanban.DataAccess/Interfaces/IBoardMemberRepository.cs`
-- [ ] T020 [P] Implement `BoardRepository` using Dapper + `IDbConnection` — `FindBoardForMemberAsync` returns null for non-members (enumeration prevention); board+lanes+cards loaded via single LEFT JOIN query in `src/Kanban.DataAccess/Repositories/BoardRepository.cs`
-- [ ] T021 [P] Implement `LaneRepository` using Dapper — includes position-shift batch UPDATE queries inside passed `IDbTransaction`; insert + separate SELECT (no RETURNING) in `src/Kanban.DataAccess/Repositories/LaneRepository.cs`
-- [ ] T022 [P] Implement `CardRepository` using Dapper — includes cross-lane position-shift queries; `board_id` written on insert (denormalized); insert + separate SELECT in `src/Kanban.DataAccess/Repositories/CardRepository.cs`
-- [ ] T023 [P] Implement `BoardMemberRepository` using Dapper — `CountOwnersAsync` used by last-owner guard in `src/Kanban.DataAccess/Repositories/BoardMemberRepository.cs`
-- [ ] T024 [P] Create business service interfaces in `src/Kanban.Business/Interfaces/`: `IBoardService.cs`, `ILaneService.cs`, `ICardService.cs`, `IBoardMembershipService.cs` — method signatures match plan.md Project Structure comments
-- [ ] T025 [P] Create static transform classes in `src/Kanban.Business/Transforms/`: `BoardTransforms.cs` (`Board → BoardSummaryDto`, `Board + Lanes → BoardDetailDto`), `LaneTransforms.cs` (`Lane + Cards → LaneDto`), `CardTransforms.cs` (`Card → CardDto`), `BoardMemberTransforms.cs` (`BoardMember + User → BoardMemberDto`)
-- [ ] T026 [P] Create FluentValidation validators for all nine new request DTOs in `src/Kanban.Api/Validators/` — rules from contracts/dtos.md validation table; register validators via `AddFluentValidationAutoValidation()` (already wired in Program.cs pattern from 001)
-- [ ] T027 [P] Create `BoardOperations` static class with operation-constant strings (`Read`, `CreateCard`, `UpdateCard`, `DeleteCard`, `CreateLane`, `UpdateLane`, `DeleteLane`, `ManageMembers`, `DeleteBoard`) in `src/Kanban.Api/Auth/BoardOperations.cs`
-- [ ] T028 [P] Create `BoardMembershipRequirement : IAuthorizationRequirement` and `BoardContext` value type (`{ Guid BoardId, BoardRole ResolvedRole }`) in `src/Kanban.Api/Auth/BoardMembershipRequirement.cs`
-- [ ] T029 Implement `BoardAuthorizationHandler : AuthorizationHandler<BoardMembershipRequirement, BoardContext>` — injects `IBoardMemberRepository`; resolves caller's board role from DB; maps `BoardOperations` constants to minimum required role in `src/Kanban.Api/Auth/BoardAuthorizationHandler.cs`
-- [ ] T030 Register all new repositories (`BoardRepository`, `LaneRepository`, `CardRepository`, `BoardMemberRepository`), service interfaces (stubs — actual implementations registered in later phases), validators, and `BoardAuthorizationHandler` as scoped in `src/Kanban.Api/Program.cs`; add rate-limiter policy overrides (`anonymous`, `authenticated`, `mutating` at 10,000 permits) to `tests/integration/KanbanWebAppFactory.cs` for the three new policies
+- [X] T016 [P] Create `IBoardRepository` interface (`FindBoardForMemberAsync`, `FindBoardsForUserAsync`, `CreateAsync`, `ExistsWithNameAsync`, `DeleteAsync`) in `src/Kanban.DataAccess/Interfaces/IBoardRepository.cs`
+- [X] T017 [P] Create `ILaneRepository` interface (`FindByBoardAsync`, `FindByIdAsync`, `CreateAsync`, `UpdateNameAsync`, `UpdatePositionAsync`, `ShiftPositionsAsync`, `DeleteAsync`, `CountInBoardAsync`) in `src/Kanban.DataAccess/Interfaces/ILaneRepository.cs`
+- [X] T018 [P] Create `ICardRepository` interface (`FindByLaneAsync`, `FindByIdAsync`, `CreateAsync`, `UpdateAsync`, `UpdatePositionAsync`, `ShiftPositionsInLaneAsync`, `DeleteAsync`, `CountInLaneAsync`) in `src/Kanban.DataAccess/Interfaces/ICardRepository.cs`
+- [X] T019 [P] Create `IBoardMemberRepository` interface (`FindRoleAsync`, `CountOwnersAsync`, `AddAsync`, `RemoveAsync`, `UpdateRoleAsync`, `FindAllForBoardAsync`) in `src/Kanban.DataAccess/Interfaces/IBoardMemberRepository.cs`
+- [X] T020 [P] Implement `BoardRepository` using Dapper + `IDbConnection` — `FindBoardForMemberAsync` returns null for non-members (enumeration prevention); board+lanes+cards loaded via single LEFT JOIN query in `src/Kanban.DataAccess/Repositories/BoardRepository.cs`
+- [X] T021 [P] Implement `LaneRepository` using Dapper — includes position-shift batch UPDATE queries inside passed `IDbTransaction`; insert + separate SELECT (no RETURNING) in `src/Kanban.DataAccess/Repositories/LaneRepository.cs`
+- [X] T022 [P] Implement `CardRepository` using Dapper — includes cross-lane position-shift queries; `board_id` written on insert (denormalized); insert + separate SELECT in `src/Kanban.DataAccess/Repositories/CardRepository.cs`
+- [X] T023 [P] Implement `BoardMemberRepository` using Dapper — `CountOwnersAsync` used by last-owner guard in `src/Kanban.DataAccess/Repositories/BoardMemberRepository.cs`
+- [X] T024 [P] Create business service interfaces in `src/Kanban.Business/Interfaces/`: `IBoardService.cs`, `ILaneService.cs`, `ICardService.cs`, `IBoardMembershipService.cs` — method signatures match plan.md Project Structure comments
+- [X] T025 [P] Create static transform classes in `src/Kanban.Business/Transforms/`: `BoardTransforms.cs` (`Board → BoardSummaryDto`, `Board + Lanes → BoardDetailDto`), `LaneTransforms.cs` (`Lane + Cards → LaneDto`), `CardTransforms.cs` (`Card → CardDto`), `BoardMemberTransforms.cs` (`BoardMember + User → BoardMemberDto`)
+- [X] T026 [P] Create FluentValidation validators for all nine new request DTOs in `src/Kanban.Api/Validators/` — rules from contracts/dtos.md validation table; register validators via `AddFluentValidationAutoValidation()` (already wired in Program.cs pattern from 001)
+- [X] T027 [P] Create `BoardOperations` static class with operation-constant strings (`Read`, `CreateCard`, `UpdateCard`, `DeleteCard`, `CreateLane`, `UpdateLane`, `DeleteLane`, `ManageMembers`, `DeleteBoard`) in `src/Kanban.Api/Auth/BoardOperations.cs`
+- [X] T028 [P] Create `BoardMembershipRequirement : IAuthorizationRequirement` and `BoardContext` value type (`{ Guid BoardId, BoardRole ResolvedRole }`) in `src/Kanban.Api/Auth/BoardMembershipRequirement.cs`
+- [X] T029 Implement `BoardAuthorizationHandler : AuthorizationHandler<BoardMembershipRequirement, BoardContext>` — injects `IBoardMemberRepository`; resolves caller's board role from DB; maps `BoardOperations` constants to minimum required role in `src/Kanban.Api/Auth/BoardAuthorizationHandler.cs`
+- [X] T030 Register all new repositories (`BoardRepository`, `LaneRepository`, `CardRepository`, `BoardMemberRepository`), service interfaces (stubs — actual implementations registered in later phases), validators, and `BoardAuthorizationHandler` as scoped in `src/Kanban.Api/Program.cs`; add rate-limiter policy overrides (`anonymous`, `authenticated`, `mutating` at 10,000 permits) to `tests/integration/KanbanWebAppFactory.cs` for the three new policies
 
 **Checkpoint**: Solution compiles; all DI registrations resolve; rate-limiter policies present in test factory.
 
