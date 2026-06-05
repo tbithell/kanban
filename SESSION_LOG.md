@@ -2320,3 +2320,61 @@ Also updated the integration test `PostAcceptInvite_ValidToken_Returns200WithCur
 
 **User:** /session-update
 
+---
+
+## Session 35
+
+**User:** I'm reviewing the code base and I noticed that we have two separate verify mechanisms. I'd prefer we use fluentvalidators like we are in Kanban.api vs using @src/Kanban.Domain/Verify.cs like we do in domain. Let's create and implement a quick story as part of 002-kanban-core, we need a new story created for this under the feature in github. This very likely requires a constitution update as well. Use the appropriate speckit skills to handle this work.
+
+**Claude:** Let me start by reading the existing spec and understanding the current codebase before invoking the speckit skills.
+
+Good — I can see the full picture. There are 146 `Verify.` usages across the codebase (79 in DataAccess alone), and the constitution explicitly mandates `Verify` in Business, DataAccess, Domain, and AntiCorruption layers. This needs both a spec update and a constitution amendment.
+
+Let me run the speckit skills in the right order: specify the story, then update the constitution.
+
+I'll follow the user's explicit instruction to append US6 to the **existing** `specs/002-kanban-core/spec.md` rather than create a new feature directory. After reading the full spec, I made the following changes:
+
+- Appended **User Story 6** after US5 and before the Edge Cases section, with five acceptance scenarios covering null arg, empty string, default GUID, 422 error mapping, and zero remaining Verify references at compile time.
+- Added **FR-027** (replace all Verify usages with FluentValidation validators and delete Verify.cs), **FR-028** (map ValidationException → 422 in DomainExceptionHandler), and **FR-029** (update all test assertions from ArgumentNullException/ArgumentException to ValidationException) to the Functional Requirements section.
+- Added **SC-011** (zero Verify references in compiled output; invalid arguments produce ValidationException not ArgumentNullException/ArgumentException) to the Success Criteria.
+- Created `specs/002-kanban-core/checklists/us6-validation-unification.md` — all checklist items pass.
+
+For the constitution amendment, I made the following targeted edits to `.specify/memory/constitution.md`:
+
+1. Replaced the "Parameter Verification — Fluent `Verify` Class" section (which mandated the bespoke Verify/ParameterVerifier<T>/extension classes) with a new **"Input Validation — FluentValidation"** section establishing FluentValidation as the single validation mechanism for all layers, with two tiers:
+   - API boundary (DTO validation) → `400 Bad Request` (unchanged)
+   - Inner layers (guard validation via `AbstractValidator<T>` / `InlineValidator<T>` + `.ValidateAndThrow()`) → `422 Unprocessable Entity`
+
+2. Added `FluentValidation.ValidationException → 422` to the exception hierarchy alongside the `KanbanException` tree.
+
+3. Updated the `DomainExceptionHandler` description to include `ValidationException` handling and the `errors` field in Problem Details.
+
+4. Updated the MVP scoping table to replace the `Verify` reference with "FluentValidation inner-layer guards".
+
+5. Updated the constitution version from **1.7.7 → 1.8.0** (MINOR) and Last Amended date to 2026-06-05.
+
+6. Updated the Sync Impact Report comment at the top to document all changes.
+
+Also updated `specs/002-kanban-core/plan.md` Constitution Check gate row from "Verify class in non-API public methods" to "FluentValidation validators in non-API public methods".
+
+Then created the GitHub issue:
+
+> **Issue #17**: `story(002-us6): Unify Input Validation Using FluentValidation Across All Layers`
+> https://github.com/tbithell/kanban/issues/17
+> Labels: `feature, spec/002-kanban-core` — Parent: #9
+
+---
+
+**User:** create a new branch for these changes and then /session-update
+
+**Claude:** Created branch `002-us6-validation-unification`, staged all 4 changed files (`.specify/memory/constitution.md`, `specs/002-kanban-core/plan.md`, `specs/002-kanban-core/spec.md`, `specs/002-kanban-core/checklists/us6-validation-unification.md`), and committed:
+
+```
+[002-us6-validation-unification 473f812] spec(002-us6): unify input validation on FluentValidation, amend constitution to v1.8.0
+ 4 files changed, 138 insertions(+), 56 deletions(-)
+ create mode 100644 specs/002-kanban-core/checklists/us6-validation-unification.md
+```
+
+gitleaks: 0 leaks found.
+
+---
