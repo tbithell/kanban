@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using FluentValidation;
 
 namespace Kanban.Domain.ValueObjects;
 
@@ -24,7 +25,7 @@ public sealed record InvitationToken
 
     public static string HashRaw(string rawToken)
     {
-        Verify.That(rawToken).IsNotNull().IsNotEmpty();
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("rawToken") }.ValidateAndThrow(rawToken);
         return ComputeHash(rawToken);
     }
 

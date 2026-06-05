@@ -8,7 +8,7 @@ public sealed class GoogleIdentityAdapter
 {
     public GoogleIdentity Extract(ClaimsPrincipal principal)
     {
-        Verify.That(principal).IsNotNull();
+        ArgumentNullException.ThrowIfNull(principal);
 
         var sub = principal.FindFirst("sub")?.Value
                   ?? throw new ExternalServiceException(

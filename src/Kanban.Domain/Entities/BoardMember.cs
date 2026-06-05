@@ -1,3 +1,4 @@
+using FluentValidation;
 using Kanban.Domain.Enums;
 
 namespace Kanban.Domain.Entities;
@@ -14,9 +15,9 @@ public sealed class BoardMember
     public BoardMember(Guid id, Guid boardId, Guid userId, BoardRole role,
                        Guid? invitedByUserId, DateTimeOffset joinedAt)
     {
-        Verify.That(id).IsNotDefault();
-        Verify.That(boardId).IsNotDefault();
-        Verify.That(userId).IsNotDefault();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("id") }.ValidateAndThrow(id);
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }.ValidateAndThrow(boardId);
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("userId") }.ValidateAndThrow(userId);
         Id = id;
         BoardId = boardId;
         UserId = userId;

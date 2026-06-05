@@ -1,3 +1,5 @@
+using FluentValidation;
+
 namespace Kanban.Domain.Entities;
 
 public sealed class Card
@@ -17,12 +19,13 @@ public sealed class Card
                 DateOnly? dueDate, int position, int version,
                 DateTimeOffset createdAt, DateTimeOffset updatedAt)
     {
-        Verify.That(id).IsNotDefault();
-        Verify.That(laneId).IsNotDefault();
-        Verify.That(boardId).IsNotDefault();
-        Verify.That(title).IsNotNull().IsNotEmpty().HasMaxLength(200);
-        if (description is not null) Verify.That(description).HasMaxLength(2000);
-        Verify.That(position).IsPositive<int>();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("id") }.ValidateAndThrow(id);
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("laneId") }.ValidateAndThrow(laneId);
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }.ValidateAndThrow(boardId);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().MaximumLength(200).WithName("title") }.ValidateAndThrow(title);
+        if (description is not null)
+            new InlineValidator<string> { v => v.RuleFor(x => x).MaximumLength(2000).WithName("description") }.ValidateAndThrow(description);
+        new InlineValidator<int> { v => v.RuleFor(x => x).GreaterThan(0).WithName("position") }.ValidateAndThrow(position);
         Id = id;
         LaneId = laneId;
         BoardId = boardId;
@@ -37,8 +40,9 @@ public sealed class Card
 
     public void Update(string title, string? description, DateOnly? dueDate, DateTimeOffset updatedAt)
     {
-        Verify.That(title).IsNotNull().IsNotEmpty().HasMaxLength(200);
-        if (description is not null) Verify.That(description).HasMaxLength(2000);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().MaximumLength(200).WithName("title") }.ValidateAndThrow(title);
+        if (description is not null)
+            new InlineValidator<string> { v => v.RuleFor(x => x).MaximumLength(2000).WithName("description") }.ValidateAndThrow(description);
         Title = title;
         Description = description;
         DueDate = dueDate;
@@ -47,8 +51,8 @@ public sealed class Card
 
     public void MoveTo(Guid laneId, int position, DateTimeOffset updatedAt)
     {
-        Verify.That(laneId).IsNotDefault();
-        Verify.That(position).IsPositive<int>();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("laneId") }.ValidateAndThrow(laneId);
+        new InlineValidator<int> { v => v.RuleFor(x => x).GreaterThan(0).WithName("position") }.ValidateAndThrow(position);
         LaneId = laneId;
         Position = position;
         Version++;

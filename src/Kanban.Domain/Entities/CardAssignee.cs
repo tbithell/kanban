@@ -1,3 +1,5 @@
+using FluentValidation;
+
 namespace Kanban.Domain.Entities;
 
 public sealed class CardAssignee
@@ -9,9 +11,9 @@ public sealed class CardAssignee
 
     public CardAssignee(Guid id, Guid cardId, Guid userId, DateTimeOffset assignedAt)
     {
-        Verify.That(id).IsNotDefault();
-        Verify.That(cardId).IsNotDefault();
-        Verify.That(userId).IsNotDefault();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("id") }.ValidateAndThrow(id);
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("cardId") }.ValidateAndThrow(cardId);
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("userId") }.ValidateAndThrow(userId);
         Id = id;
         CardId = cardId;
         UserId = userId;

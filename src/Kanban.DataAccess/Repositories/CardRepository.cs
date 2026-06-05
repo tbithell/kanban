@@ -1,5 +1,6 @@
 using System.Data;
 using Dapper;
+using FluentValidation;
 using Kanban.DataAccess.Interfaces;
 using Kanban.Domain;
 using Kanban.Domain.Entities;
@@ -12,13 +13,13 @@ public sealed class CardRepository : ICardRepository
 
     public CardRepository(IDbConnection connection)
     {
-        Verify.That(connection).IsNotNull();
+        ArgumentNullException.ThrowIfNull(connection);
         _connection = connection;
     }
 
     public async Task<IReadOnlyList<Card>> FindByLaneAsync(Guid laneId, IDbTransaction? tx = null)
     {
-        Verify.That(laneId).IsNotDefault();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("laneId") }.ValidateAndThrow(laneId);
 
         const string sql = """
             SELECT id, lane_id AS LaneId, board_id AS BoardId, title, description, due_date AS DueDate,
@@ -35,7 +36,7 @@ public sealed class CardRepository : ICardRepository
 
     public async Task<Card?> FindByIdAsync(Guid cardId, IDbTransaction? tx = null)
     {
-        Verify.That(cardId).IsNotDefault();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("cardId") }.ValidateAndThrow(cardId);
 
         const string sql = """
             SELECT id, lane_id AS LaneId, board_id AS BoardId, title, description, due_date AS DueDate,
@@ -50,8 +51,8 @@ public sealed class CardRepository : ICardRepository
 
     public async Task InsertAsync(Card card, IDbTransaction tx)
     {
-        Verify.That(card).IsNotNull();
-        Verify.That(tx).IsNotNull();
+        ArgumentNullException.ThrowIfNull(card);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             INSERT INTO cards (id, lane_id, board_id, title, description, due_date,
@@ -77,8 +78,8 @@ public sealed class CardRepository : ICardRepository
 
     public async Task UpdateAsync(Card card, IDbTransaction tx)
     {
-        Verify.That(card).IsNotNull();
-        Verify.That(tx).IsNotNull();
+        ArgumentNullException.ThrowIfNull(card);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             UPDATE cards
@@ -98,9 +99,9 @@ public sealed class CardRepository : ICardRepository
 
     public async Task<int> UpdatePositionAsync(Guid cardId, Guid laneId, int newPosition, int expectedVersion, IDbTransaction tx)
     {
-        Verify.That(cardId).IsNotDefault();
-        Verify.That(laneId).IsNotDefault();
-        Verify.That(tx).IsNotNull();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("cardId") }.ValidateAndThrow(cardId);
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("laneId") }.ValidateAndThrow(laneId);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             UPDATE cards
@@ -122,8 +123,8 @@ public sealed class CardRepository : ICardRepository
 
     public async Task ShiftPositionsInLaneAsync(Guid laneId, int fromPosition, int toPosition, int delta, IDbTransaction tx)
     {
-        Verify.That(laneId).IsNotDefault();
-        Verify.That(tx).IsNotNull();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("laneId") }.ValidateAndThrow(laneId);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             UPDATE cards
@@ -144,8 +145,8 @@ public sealed class CardRepository : ICardRepository
 
     public async Task DeleteAsync(Guid cardId, IDbTransaction tx)
     {
-        Verify.That(cardId).IsNotDefault();
-        Verify.That(tx).IsNotNull();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("cardId") }.ValidateAndThrow(cardId);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = "DELETE FROM cards WHERE id = @cardId";
         await _connection.ExecuteAsync(sql,
@@ -154,7 +155,7 @@ public sealed class CardRepository : ICardRepository
 
     public async Task<int> CountInLaneAsync(Guid laneId, IDbTransaction? tx = null)
     {
-        Verify.That(laneId).IsNotDefault();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("laneId") }.ValidateAndThrow(laneId);
 
         const string sql = "SELECT COUNT(*) FROM cards WHERE lane_id = @laneId";
         return await _connection.QuerySingleAsync<int>(

@@ -1,5 +1,6 @@
 using System.Data;
 using Dapper;
+using FluentValidation;
 using Kanban.DataAccess.Interfaces;
 using Kanban.Domain;
 using Kanban.Domain.Entities;
@@ -12,13 +13,13 @@ public sealed class LaneRepository : ILaneRepository
 
     public LaneRepository(IDbConnection connection)
     {
-        Verify.That(connection).IsNotNull();
+        ArgumentNullException.ThrowIfNull(connection);
         _connection = connection;
     }
 
     public async Task<IReadOnlyList<Lane>> FindByBoardAsync(Guid boardId, IDbTransaction? tx = null)
     {
-        Verify.That(boardId).IsNotDefault();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }.ValidateAndThrow(boardId);
 
         const string sql = """
             SELECT id, board_id AS BoardId, name, position, version, created_at AS CreatedAt
@@ -34,7 +35,7 @@ public sealed class LaneRepository : ILaneRepository
 
     public async Task<Lane?> FindByIdAsync(Guid laneId, IDbTransaction? tx = null)
     {
-        Verify.That(laneId).IsNotDefault();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("laneId") }.ValidateAndThrow(laneId);
 
         const string sql = """
             SELECT id, board_id AS BoardId, name, position, version, created_at AS CreatedAt
@@ -48,8 +49,8 @@ public sealed class LaneRepository : ILaneRepository
 
     public async Task InsertAsync(Lane lane, IDbTransaction tx)
     {
-        Verify.That(lane).IsNotNull();
-        Verify.That(tx).IsNotNull();
+        ArgumentNullException.ThrowIfNull(lane);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             INSERT INTO lanes (id, board_id, name, position, version, created_at)
@@ -69,9 +70,9 @@ public sealed class LaneRepository : ILaneRepository
 
     public async Task UpdateNameAsync(Guid laneId, string name, IDbTransaction tx)
     {
-        Verify.That(laneId).IsNotDefault();
-        Verify.That(name).IsNotNull().IsNotEmpty();
-        Verify.That(tx).IsNotNull();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("laneId") }.ValidateAndThrow(laneId);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("name") }.ValidateAndThrow(name);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = "UPDATE lanes SET name = @name WHERE id = @laneId";
         await _connection.ExecuteAsync(sql,
@@ -80,8 +81,8 @@ public sealed class LaneRepository : ILaneRepository
 
     public async Task<int> UpdatePositionAsync(Guid laneId, int newPosition, int expectedVersion, IDbTransaction tx)
     {
-        Verify.That(laneId).IsNotDefault();
-        Verify.That(tx).IsNotNull();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("laneId") }.ValidateAndThrow(laneId);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             UPDATE lanes
@@ -100,8 +101,8 @@ public sealed class LaneRepository : ILaneRepository
 
     public async Task ShiftPositionsAsync(Guid boardId, int fromPosition, int toPosition, int delta, IDbTransaction tx)
     {
-        Verify.That(boardId).IsNotDefault();
-        Verify.That(tx).IsNotNull();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }.ValidateAndThrow(boardId);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             UPDATE lanes
@@ -122,8 +123,8 @@ public sealed class LaneRepository : ILaneRepository
 
     public async Task DeleteAsync(Guid laneId, IDbTransaction tx)
     {
-        Verify.That(laneId).IsNotDefault();
-        Verify.That(tx).IsNotNull();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("laneId") }.ValidateAndThrow(laneId);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = "DELETE FROM lanes WHERE id = @laneId";
         await _connection.ExecuteAsync(sql,
@@ -132,7 +133,7 @@ public sealed class LaneRepository : ILaneRepository
 
     public async Task<int> CountInBoardAsync(Guid boardId, IDbTransaction? tx = null)
     {
-        Verify.That(boardId).IsNotDefault();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }.ValidateAndThrow(boardId);
 
         const string sql = "SELECT COUNT(*) FROM lanes WHERE board_id = @boardId";
         return await _connection.QuerySingleAsync<int>(

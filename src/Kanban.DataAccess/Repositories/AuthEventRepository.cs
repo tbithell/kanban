@@ -12,14 +12,14 @@ public sealed class AuthEventRepository : IAuthEventRepository
 
     public AuthEventRepository(IDbConnection connection)
     {
-        Verify.That(connection).IsNotNull();
+        ArgumentNullException.ThrowIfNull(connection);
         _connection = connection;
     }
 
     public async Task RecordAsync(AuthEvent authEvent, IDbTransaction tx)
     {
-        Verify.That(authEvent).IsNotNull();
-        Verify.That(tx).IsNotNull();
+        ArgumentNullException.ThrowIfNull(authEvent);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             INSERT INTO auth_events (id, occurred_at, event_type, user_id, outcome)
