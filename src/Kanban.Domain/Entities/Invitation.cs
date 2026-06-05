@@ -21,7 +21,8 @@ public sealed class Invitation
 
     public Invitation(Guid id, string email, Guid issuedByUserId, string tokenHash,
                       DateTimeOffset issuedAt, DateTimeOffset expiresAt,
-                      DateTimeOffset? consumedAt, Guid? consumedByUserId)
+                      DateTimeOffset? consumedAt, Guid? consumedByUserId,
+                      Guid? boardId = null, BoardRole? boardRole = null)
     {
         Verify.That(id).IsNotDefault();
         Verify.That(email).IsNotNull().IsNotEmpty();
@@ -36,6 +37,8 @@ public sealed class Invitation
         ExpiresAt = expiresAt;
         ConsumedAt = consumedAt;
         ConsumedByUserId = consumedByUserId;
+        BoardId = boardId;
+        BoardRole = boardRole;
     }
 
     public bool EmailMatches(string googleEmail)

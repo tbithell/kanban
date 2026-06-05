@@ -115,11 +115,9 @@ public sealed class InvitationService : IInvitationService
                     issuedAt: issuedAt,
                     expiresAt: issuedAt.AddDays(7),
                     consumedAt: null,
-                    consumedByUserId: null)
-                {
-                    BoardId = boardId,
-                    BoardRole = boardRole,
-                };
+                    consumedByUserId: null,
+                    boardId: boardId,
+                    boardRole: boardRole);
 
                 await _invitationRepository.InsertAsync(invitation, tx);
 
