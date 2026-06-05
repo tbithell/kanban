@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using FluentValidation;
 using Kanban.Domain.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -12,6 +13,28 @@ public sealed class DomainExceptionHandler(IProblemDetailsService problemDetails
         Exception exception,
         CancellationToken cancellationToken)
     {
+        if (exception is ValidationException validationException)
+        {
+            httpContext.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
+            return await problemDetails.TryWriteAsync(new ProblemDetailsContext
+            {
+                HttpContext = httpContext,
+                ProblemDetails = new ProblemDetails
+                {
+                    Title = "One or more validation errors occurred.",
+                    Status = StatusCodes.Status422UnprocessableEntity,
+                    Extensions =
+                    {
+                        ["code"] = "validation.failed",
+                        ["errors"] = validationException.Errors
+                            .Select(e => new { field = e.PropertyName, message = e.ErrorMessage })
+                            .ToArray(),
+                        ["traceId"] = Activity.Current?.Id
+                    }
+                }
+            });
+        }
+
         if (exception is not DomainException domainException)
             return false;
 
