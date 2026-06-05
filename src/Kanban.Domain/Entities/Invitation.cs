@@ -1,3 +1,5 @@
+using Kanban.Domain.Enums;
+
 namespace Kanban.Domain.Entities;
 
 public sealed class Invitation
@@ -10,6 +12,8 @@ public sealed class Invitation
     public DateTimeOffset ExpiresAt { get; }
     public DateTimeOffset? ConsumedAt { get; private set; }
     public Guid? ConsumedByUserId { get; private set; }
+    public Guid? BoardId { get; init; }
+    public BoardRole? BoardRole { get; init; }
 
     public bool IsExpired => DateTimeOffset.UtcNow > ExpiresAt;
     public bool IsConsumed => ConsumedAt.HasValue;
