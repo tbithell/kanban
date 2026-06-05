@@ -102,6 +102,24 @@ A registered user assigned the Viewer role on a board can see the board's lanes 
 
 ---
 
+### User Story 6 - Unify Input Validation Using FluentValidation Across All Layers (Priority: P1)
+
+The codebase currently maintains two separate input-validation mechanisms: FluentValidation at the API boundary (where it handles user-supplied input on incoming requests) and a bespoke `Verify` guard-clause class in the inner layers (Business, DataAccess, Domain, AntiCorruption). This duplication means two patterns to learn, two exception types to map in error-handling middleware, and two sets of test assertions to maintain. Consolidating on FluentValidation throughout removes this inconsistency and establishes a single, well-known library as the project's universal input-validation tool.
+
+**Why this priority**: All new services introduced in US1–US5 must adopt the chosen validation pattern from day one. Completing this migration before implementing the board, lane, card, and membership services prevents the legacy pattern from spreading further and avoids a double-migration.
+
+**Independent Test**: Call any business service method or repository method with a null, empty, or otherwise invalid argument. Confirm a `FluentValidation.ValidationException` is thrown (not `ArgumentNullException` or `ArgumentException`). Confirm that the API returns a `422 Unprocessable Entity` with a Problem Details body describing the validation failure. Confirm no reference to `Verify.cs` remains in the compiled solution.
+
+**Acceptance Scenarios**:
+
+1. **Given** a business service method is called with a null required argument, **When** the call is processed, **Then** a `FluentValidation.ValidationException` is thrown describing the null violation — no `ArgumentNullException` is raised.
+2. **Given** a business service method is called with an empty string where a non-empty value is required, **When** the call is processed, **Then** a `FluentValidation.ValidationException` is thrown describing the empty-string violation.
+3. **Given** a repository method is called with a default (empty) GUID where a valid identifier is required, **When** the call is processed, **Then** a `FluentValidation.ValidationException` is thrown describing the invalid identifier.
+4. **Given** any inner-layer `ValidationException` propagates to the API, **When** the exception handler processes it, **Then** the response status is `422 Unprocessable Entity` with a Problem Details body containing a `code` field and the validation error details — no stack trace is exposed.
+5. **Given** the migration is complete, **When** the solution is compiled, **Then** there are zero references to `Verify.cs`, `ParameterVerifier<T>`, or any of the `Verify` extension classes — they do not exist in the compiled output.
+
+---
+
 ### Edge Cases
 
 - **Concurrent card moves to the same position**: two members drag different cards to the same lane position simultaneously; both operations succeed but land at distinct adjacent positions — neither card is lost.
@@ -152,6 +170,12 @@ A registered user assigned the Viewer role on a board can see the board's lanes 
 - **FR-020**: System MUST allow board Owners and system Admins to remove a member from a board. Removing the last Owner MUST be refused with a clear error.
 - **FR-021**: System MUST return the full list of current board members and their roles to any user who is a member of that board.
 
+#### Validation Unification
+
+- **FR-027**: System MUST replace all usages of the `Verify` guard-clause class in Business, DataAccess, Domain, and AntiCorruption layers with FluentValidation `AbstractValidator<T>` subclasses or inline `InlineValidator<T>` instances. After migration, the `Verify.cs` file and all its extension classes MUST be deleted from the solution.
+- **FR-028**: When a FluentValidation `ValidationException` is thrown from an inner layer and reaches the API, the system MUST return a `422 Unprocessable Entity` response in RFC 7807 Problem Details format. The response MUST include a `code` field (e.g. `"validation.failed"`) and MUST NOT include stack traces or internal class names.
+- **FR-029**: All existing unit and integration tests that currently assert `ArgumentNullException` or `ArgumentException` originating from `Verify` calls MUST be updated to assert `FluentValidation.ValidationException` instead. The test assertions MUST verify that the correct field name and error message appear in the exception's `Errors` collection.
+
 #### Drag-and-Drop Reordering (UI)
 
 - **FR-022**: The UI MUST allow board Owners and Members to reorder cards within a lane and between lanes by dragging them. Board Viewers MUST NOT be able to initiate a drag.
@@ -182,6 +206,7 @@ A registered user assigned the Viewer role on a board can see the board's lanes 
 - **SC-008**: A board viewer can load and read a board with 100 cards in under 3 seconds and cannot trigger any write operation regardless of how they interact with the UI.
 - **SC-009**: Board invitation acceptance by a person not yet registered completes and presents the invited board in under 2 minutes from opening the link (assumes the invitee has a valid account with the identity provider).
 - **SC-010**: Requests for a board by a non-member return a not-found response in under 200 milliseconds — board existence is never revealed to non-members.
+- **SC-011**: After migration, the solution contains zero references to the `Verify` class. Any invalid argument passed to a Business, DataAccess, Domain, or AntiCorruption public method produces a `FluentValidation.ValidationException` — never an `ArgumentNullException` or `ArgumentException`.
 
 ## Assumptions
 
