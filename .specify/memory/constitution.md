@@ -1757,7 +1757,6 @@ contributors — human and AI.
 - Commits MUST be made after each completed task.
 - A failing-test commit MUST precede the passing-implementation commit (TDD evidence in
   history).
-- AI session logs MUST be appended to `SESSION_LOG.md` after each working session.
 - All four test layers MUST pass before a feature branch is merged.
 - NFR gates (maintainability, usability, performance) MUST be verified before merge.
 - Snyk MUST show no medium, high, or critical severity findings before merge.
@@ -2249,4 +2248,4 @@ Amendments require: (1) documented rationale, (2) version bump per the policy be
 All implementation tasks and AI agent outputs MUST be verified for compliance with this
 constitution before a task is marked complete.
 
-**Version**: 1.8.0 | **Ratified**: 2026-05-23 | **Last Amended**: 2026-06-05
+**Version**: 1.8.1 | **Ratified**: 2026-05-23 | **Last Amended**: 2026-06-07
