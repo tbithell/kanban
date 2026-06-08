@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Kanban.Business.Interfaces;
 using Microsoft.AspNetCore.Http;
 
 namespace Kanban.Api.Auth;
@@ -23,4 +25,7 @@ public sealed class CurrentUserService(IHttpContextAccessor httpContextAccessor)
 
     public string? SystemRole =>
         _httpContextAccessor.HttpContext?.User.FindFirst("system_role")?.Value;
+
+    public ClaimsPrincipal Principal =>
+        _httpContextAccessor.HttpContext?.User ?? new ClaimsPrincipal();
 }

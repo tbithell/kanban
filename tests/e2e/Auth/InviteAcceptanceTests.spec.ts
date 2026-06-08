@@ -63,7 +63,7 @@ test.describe('US3: Invitee accepts an invitation', () => {
 
     await page.goto(`${WEB_BASE}/accept/${token}`)
     await expect(page).toHaveURL(`${WEB_BASE}/`, { timeout: 15_000 })
-    await expect(page.getByRole('main', { name: /kanban board/i })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /boards/i })).toBeVisible()
 
     await ctx.close()
   })

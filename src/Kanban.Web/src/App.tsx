@@ -4,6 +4,8 @@ import { useCurrentUser } from './hooks/useCurrentUser'
 import SignInPage from './pages/SignInPage'
 import NotRegisteredPage from './pages/NotRegisteredPage'
 import AcceptInvitePage from './pages/AcceptInvitePage'
+import BoardListPage from './pages/BoardListPage'
+import BoardPage from './pages/BoardPage'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isLoading, isUnauthenticated, isNotRegistered, isError } = useCurrentUser()
@@ -25,9 +27,15 @@ export default function App() {
         path="/"
         element={
           <ProtectedRoute>
-            <main aria-label="Kanban board">
-              <p>Welcome to Kanban</p>
-            </main>
+            <BoardListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/boards/:boardId"
+        element={
+          <ProtectedRoute>
+            <BoardPage />
           </ProtectedRoute>
         }
       />

@@ -20,6 +20,7 @@ public static class DapperConfiguration
             SqlMapper.AddTypeHandler(new NullableGuidHandler());
             SqlMapper.AddTypeHandler(new DateTimeOffsetHandler());
             SqlMapper.AddTypeHandler(new NullableDateTimeOffsetHandler());
+            SqlMapper.AddTypeHandler(new IntHandler());
             SqlMapper.AddTypeHandler(new SystemRoleHandler());
             SqlMapper.AddTypeHandler(new AuthEventTypeHandler());
             SqlMapper.AddTypeHandler(new BoardRoleHandler());
@@ -63,6 +64,14 @@ public static class DapperConfiguration
 
         public override void SetValue(IDbDataParameter parameter, DateTimeOffset? value)
             => parameter.Value = value.HasValue ? value.Value.ToString("o") : (object)DBNull.Value;
+    }
+
+    private sealed class IntHandler : SqlMapper.TypeHandler<int>
+    {
+        public override int Parse(object value) => Convert.ToInt32(value);
+
+        public override void SetValue(IDbDataParameter parameter, int value)
+            => parameter.Value = value;
     }
 
     private sealed class SystemRoleHandler : SqlMapper.TypeHandler<SystemRole>

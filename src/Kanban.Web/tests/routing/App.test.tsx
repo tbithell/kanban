@@ -3,9 +3,25 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import App from '../../src/App'
 import { useCurrentUser } from '../../src/hooks/useCurrentUser'
+import { createQueryClientWrapper } from '../../src/tests/utils/queryClientWrapper'
 
 vi.mock('../../src/hooks/useCurrentUser', () => ({
   useCurrentUser: vi.fn(),
+}))
+vi.mock('../../src/hooks/useBoards', () => ({
+  useBoards: vi.fn(() => ({
+    data: [],
+    isPending: false,
+    isSuccess: true,
+    isError: false,
+    error: null,
+  })),
+}))
+vi.mock('../../src/hooks/useDeleteBoard', () => ({
+  useDeleteBoard: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+}))
+vi.mock('../../src/hooks/useCreateBoard', () => ({
+  useCreateBoard: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
 }))
 
 const mockUseCurrentUser = vi.mocked(useCurrentUser)
@@ -46,27 +62,26 @@ describe('App routing', () => {
     vi.clearAllMocks()
   })
 
+  function renderApp(initialPath: string) {
+    const { Wrapper } = createQueryClientWrapper()
+    return render(
+      <Wrapper>
+        <MemoryRouter initialEntries={[initialPath]}>
+          <App />
+        </MemoryRouter>
+      </Wrapper>
+    )
+  }
+
   it('redirects unauthenticated users visiting / to /signin', () => {
     mockUseCurrentUser.mockReturnValue(unauthenticatedState)
-
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <App />
-      </MemoryRouter>
-    )
-
+    renderApp('/')
     expect(screen.getByRole('heading', { name: /sign in to kanban/i })).toBeInTheDocument()
   })
 
   it('redirects not-registered users visiting / to /not-registered', () => {
     mockUseCurrentUser.mockReturnValue(notRegisteredState)
-
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <App />
-      </MemoryRouter>
-    )
-
+    renderApp('/')
     expect(
       screen.getByRole('heading', { name: /not registered|access denied/i })
     ).toBeInTheDocument()
@@ -74,13 +89,7 @@ describe('App routing', () => {
 
   it('renders the landing page for authenticated users at /', () => {
     mockUseCurrentUser.mockReturnValue(authenticatedState)
-
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <App />
-      </MemoryRouter>
-    )
-
+    renderApp('/')
     expect(screen.queryByRole('heading', { name: /sign in to kanban/i })).not.toBeInTheDocument()
     expect(
       screen.queryByRole('heading', { name: /not registered|access denied/i })
@@ -89,25 +98,13 @@ describe('App routing', () => {
 
   it('renders SignInPage at /signin regardless of auth state', () => {
     mockUseCurrentUser.mockReturnValue(unauthenticatedState)
-
-    render(
-      <MemoryRouter initialEntries={['/signin']}>
-        <App />
-      </MemoryRouter>
-    )
-
+    renderApp('/signin')
     expect(screen.getByRole('heading', { name: /sign in to kanban/i })).toBeInTheDocument()
   })
 
   it('renders NotRegisteredPage at /not-registered', () => {
     mockUseCurrentUser.mockReturnValue(notRegisteredState)
-
-    render(
-      <MemoryRouter initialEntries={['/not-registered']}>
-        <App />
-      </MemoryRouter>
-    )
-
+    renderApp('/not-registered')
     expect(
       screen.getByRole('heading', { name: /not registered|access denied/i })
     ).toBeInTheDocument()
