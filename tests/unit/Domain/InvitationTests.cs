@@ -1,4 +1,5 @@
 using FluentAssertions;
+using FluentValidation;
 using Kanban.Domain.Entities;
 
 namespace Kanban.Tests.Unit.Domain;
@@ -98,11 +99,11 @@ public class InvitationTests
     }
 
     [Fact]
-    public void Consume_WhenUserIdIsEmpty_ThrowsArgumentException()
+    public void Consume_WhenUserIdIsEmpty_ThrowsValidationException()
     {
         var invitation = ValidInvitation();
         Guid userId = Guid.Empty;
         var act = () => invitation.Consume(userId, DateTimeOffset.UtcNow);
-        act.Should().Throw<ArgumentException>();
+        act.Should().Throw<ValidationException>();
     }
 }

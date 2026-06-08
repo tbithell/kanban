@@ -1,3 +1,6 @@
+using FluentValidation;
+using Kanban.Domain.Enums;
+
 namespace Kanban.Domain.Entities;
 
 public sealed class Invitation
@@ -10,6 +13,8 @@ public sealed class Invitation
     public DateTimeOffset ExpiresAt { get; }
     public DateTimeOffset? ConsumedAt { get; private set; }
     public Guid? ConsumedByUserId { get; private set; }
+    public Guid? BoardId { get; init; }
+    public BoardRole? BoardRole { get; init; }
 
     public bool IsExpired => DateTimeOffset.UtcNow > ExpiresAt;
     public bool IsConsumed => ConsumedAt.HasValue;
@@ -17,12 +22,13 @@ public sealed class Invitation
 
     public Invitation(Guid id, string email, Guid issuedByUserId, string tokenHash,
                       DateTimeOffset issuedAt, DateTimeOffset expiresAt,
-                      DateTimeOffset? consumedAt, Guid? consumedByUserId)
+                      DateTimeOffset? consumedAt, Guid? consumedByUserId,
+                      Guid? boardId = null, BoardRole? boardRole = null)
     {
-        Verify.That(id).IsNotDefault();
-        Verify.That(email).IsNotNull().IsNotEmpty();
-        Verify.That(issuedByUserId).IsNotDefault();
-        Verify.That(tokenHash).IsNotNull().IsNotEmpty();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("id") }.ValidateAndThrow(id);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("email") }.ValidateAndThrow(email);
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("issuedByUserId") }.ValidateAndThrow(issuedByUserId);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("tokenHash") }.ValidateAndThrow(tokenHash);
 
         Id = id;
         Email = email;
@@ -32,17 +38,19 @@ public sealed class Invitation
         ExpiresAt = expiresAt;
         ConsumedAt = consumedAt;
         ConsumedByUserId = consumedByUserId;
+        BoardId = boardId;
+        BoardRole = boardRole;
     }
 
     public bool EmailMatches(string googleEmail)
     {
-        Verify.That(googleEmail).IsNotNull().IsNotEmpty();
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("googleEmail") }.ValidateAndThrow(googleEmail);
         return string.Equals(Email, googleEmail, StringComparison.OrdinalIgnoreCase);
     }
 
     public void Consume(Guid userId, DateTimeOffset consumedAt)
     {
-        Verify.That(userId).IsNotDefault();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("userId") }.ValidateAndThrow(userId);
         ConsumedAt = consumedAt;
         ConsumedByUserId = userId;
     }

@@ -96,7 +96,7 @@ public sealed class InviteEndpointTests : IClassFixture<KanbanWebAppFactory>
     // ── POST /api/v1/invites/{token}/accept ───────────────────────────────────
 
     [Fact]
-    public async Task PostAcceptInvite_ValidToken_Returns200WithCurrentUserDto()
+    public async Task PostAcceptInvite_ValidToken_Returns200WithAcceptInviteResponseDto()
     {
         var adminId = await _factory.GetSeededAdminIdAsync();
         var email = "validacceptee@example.com";
@@ -107,10 +107,11 @@ public sealed class InviteEndpointTests : IClassFixture<KanbanWebAppFactory>
         var response = await client.PostAsync($"/api/v1/invites/{rawToken}/accept", null);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<CurrentUserDto>();
+        var body = await response.Content.ReadFromJsonAsync<AcceptInviteResponseDto>();
         body.Should().NotBeNull();
-        body!.Email.Should().Be(email);
-        body.SystemRole.Should().Be("standard");
+        body!.User.Email.Should().Be(email);
+        body.User.SystemRole.Should().Be("standard");
+        body.BoardId.Should().BeNull();
     }
 
     [Fact]

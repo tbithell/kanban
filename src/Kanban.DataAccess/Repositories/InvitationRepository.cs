@@ -1,5 +1,6 @@
 using System.Data;
 using Dapper;
+using FluentValidation;
 using Kanban.DataAccess.Interfaces;
 using Kanban.Domain;
 using Kanban.Domain.Entities;
@@ -13,18 +14,19 @@ public sealed class InvitationRepository : IInvitationRepository
 
     public InvitationRepository(IDbConnection connection)
     {
-        Verify.That(connection).IsNotNull();
+        ArgumentNullException.ThrowIfNull(connection);
         _connection = connection;
     }
 
     public async Task<Invitation?> FindByTokenHashAsync(string tokenHash, IDbTransaction? tx = null)
     {
-        Verify.That(tokenHash).IsNotNull().IsNotEmpty();
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("tokenHash") }.ValidateAndThrow(tokenHash);
 
         const string sql = """
             SELECT id, email, issued_by_user_id AS IssuedByUserId, token_hash AS TokenHash,
                    issued_at AS IssuedAt, expires_at AS ExpiresAt,
-                   consumed_at AS ConsumedAt, consumed_by_user_id AS ConsumedByUserId
+                   consumed_at AS ConsumedAt, consumed_by_user_id AS ConsumedByUserId,
+                   board_id AS BoardId, board_role AS BoardRole
             FROM invitations
             WHERE token_hash = @tokenHash
             """;
@@ -35,12 +37,13 @@ public sealed class InvitationRepository : IInvitationRepository
 
     public async Task<Invitation?> FindActiveByEmailAsync(string email, IDbTransaction? tx = null)
     {
-        Verify.That(email).IsNotNull().IsNotEmpty();
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("email") }.ValidateAndThrow(email);
 
         const string sql = """
             SELECT id, email, issued_by_user_id AS IssuedByUserId, token_hash AS TokenHash,
                    issued_at AS IssuedAt, expires_at AS ExpiresAt,
-                   consumed_at AS ConsumedAt, consumed_by_user_id AS ConsumedByUserId
+                   consumed_at AS ConsumedAt, consumed_by_user_id AS ConsumedByUserId,
+                   board_id AS BoardId, board_role AS BoardRole
             FROM invitations
             WHERE email = @email
               AND consumed_at IS NULL
@@ -53,14 +56,14 @@ public sealed class InvitationRepository : IInvitationRepository
 
     public async Task InsertAsync(Invitation invitation, IDbTransaction tx)
     {
-        Verify.That(invitation).IsNotNull();
-        Verify.That(tx).IsNotNull();
+        ArgumentNullException.ThrowIfNull(invitation);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             INSERT INTO invitations (id, email, issued_by_user_id, token_hash, issued_at, expires_at,
-                                     consumed_at, consumed_by_user_id)
+                                     consumed_at, consumed_by_user_id, board_id, board_role)
             VALUES (@id, @email, @issuedByUserId, @tokenHash, @issuedAt, @expiresAt,
-                    @consumedAt, @consumedByUserId)
+                    @consumedAt, @consumedByUserId, @boardId, @boardRole)
             """;
 
         await _connection.ExecuteAsync(sql, new
@@ -73,14 +76,16 @@ public sealed class InvitationRepository : IInvitationRepository
             expiresAt = invitation.ExpiresAt.ToString("o"),
             consumedAt = invitation.ConsumedAt?.ToString("o"),
             consumedByUserId = invitation.ConsumedByUserId?.ToString("D"),
+            boardId = invitation.BoardId?.ToString("D"),
+            boardRole = invitation.BoardRole?.ToString(),
         }, transaction: tx);
     }
 
     public async Task<bool> TryConsumeAsync(
         string tokenHash, DateTimeOffset consumedAt, IDbTransaction tx)
     {
-        Verify.That(tokenHash).IsNotNull().IsNotEmpty();
-        Verify.That(tx).IsNotNull();
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("tokenHash") }.ValidateAndThrow(tokenHash);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             UPDATE invitations
@@ -103,9 +108,9 @@ public sealed class InvitationRepository : IInvitationRepository
     public async Task RecordConsumerAsync(
         string tokenHash, Guid consumedByUserId, IDbTransaction tx)
     {
-        Verify.That(tokenHash).IsNotNull().IsNotEmpty();
-        Verify.That(consumedByUserId).IsNotDefault();
-        Verify.That(tx).IsNotNull();
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("tokenHash") }.ValidateAndThrow(tokenHash);
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("consumedByUserId") }.ValidateAndThrow(consumedByUserId);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             UPDATE invitations SET consumed_by_user_id = @consumedByUserId
@@ -126,9 +131,9 @@ public sealed class InvitationRepository : IInvitationRepository
     public async Task RefreshTokenAsync(Guid id, string newTokenHash, DateTimeOffset newExpiresAt,
                                         IDbTransaction tx)
     {
-        Verify.That(id).IsNotDefault();
-        Verify.That(newTokenHash).IsNotNull().IsNotEmpty();
-        Verify.That(tx).IsNotNull();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("id") }.ValidateAndThrow(id);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("newTokenHash") }.ValidateAndThrow(newTokenHash);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             UPDATE invitations SET token_hash = @newTokenHash, expires_at = @newExpiresAt

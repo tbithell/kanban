@@ -67,7 +67,7 @@ abstraction unchanged
 | NFRs (IX) | ✅ PASS | Performance targets from SC-001–SC-010; WCAG AA on drag-drop (keyboard + announcements); version-column concurrency |
 | Entities never cross API boundary | ✅ PASS | Domain entities stay in Business; only `Kanban.Contracts` DTOs exit the API |
 | RegisteredUser policy gate | ✅ PASS | All new endpoints require RegisteredUser; board-level operations additionally require board role |
-| Verify class in non-API public methods | ✅ PASS | All Business, DataAccess, Domain public methods use Verify |
+| FluentValidation validators in non-API public methods | ✅ PASS | All new Business, DataAccess, Domain, AntiCorruption public methods use FluentValidation AbstractValidator/InlineValidator; US6 migrates existing Verify usages |
 | gitleaks pre-commit hook | ✅ PASS | Already installed from 001; no change |
 | DDD aggregate roots | ✅ PASS | `Board`, `Lane`, `Card` are aggregate roots; `BoardMember` is not (accessed via Board/User context) |
 | IDbConnection only in DataAccess | ✅ PASS | All new repositories depend on `IDbConnection`; no `SqliteConnection` outside DI |

@@ -9,7 +9,7 @@ public static class UserTransforms
 {
     public static CurrentUserDto ToDto(User user)
     {
-        Verify.That(user).IsNotNull();
+        ArgumentNullException.ThrowIfNull(user);
         return new CurrentUserDto
         {
             Id = user.Id,

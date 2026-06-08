@@ -1,4 +1,5 @@
 using FluentAssertions;
+using FluentValidation;
 using Kanban.Domain.ValueObjects;
 
 namespace Kanban.Tests.Unit.Domain;
@@ -44,11 +45,11 @@ public class InvitationTokenTests
     }
 
     [Fact]
-    public void HashRaw_WhenEmpty_ThrowsArgumentException()
+    public void HashRaw_WhenEmpty_ThrowsValidationException()
     {
         string rawToken = string.Empty;
         var act = () => InvitationToken.HashRaw(rawToken);
-        act.Should().Throw<ArgumentException>();
+        act.Should().Throw<ValidationException>();
     }
 
     [Fact]

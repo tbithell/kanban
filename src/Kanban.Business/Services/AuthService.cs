@@ -1,5 +1,6 @@
 using System.Data;
 using System.Security.Claims;
+using FluentValidation;
 using Kanban.Business.Interfaces;
 using Kanban.Business.Transforms;
 using Kanban.Contracts;
@@ -43,11 +44,11 @@ public sealed class AuthService : IAuthService
         IDbConnectionFactory transactionFactory,
         ILogger<AuthService> logger)
     {
-        Verify.That(userRepository).IsNotNull();
-        Verify.That(authEventRepository).IsNotNull();
-        Verify.That(dbConnection).IsNotNull();
-        Verify.That(transactionFactory).IsNotNull();
-        Verify.That(logger).IsNotNull();
+        ArgumentNullException.ThrowIfNull(userRepository);
+        ArgumentNullException.ThrowIfNull(authEventRepository);
+        ArgumentNullException.ThrowIfNull(dbConnection);
+        ArgumentNullException.ThrowIfNull(transactionFactory);
+        ArgumentNullException.ThrowIfNull(logger);
         _userRepository = userRepository;
         _authEventRepository = authEventRepository;
         _dbConnection = dbConnection;
@@ -59,7 +60,7 @@ public sealed class AuthService : IAuthService
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        Verify.That(userId).IsNotDefault();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("userId") }.ValidateAndThrow(userId);
         var user = await _userRepository.FindByIdAsync(userId);
         return user is null ? null : UserTransforms.ToDto(user);
     }
@@ -70,9 +71,9 @@ public sealed class AuthService : IAuthService
         ClaimsIdentity claimsIdentity,
         CancellationToken cancellationToken = default)
     {
-        Verify.That(googleSub).IsNotNull().IsNotEmpty();
-        Verify.That(email).IsNotNull().IsNotEmpty();
-        Verify.That(claimsIdentity).IsNotNull();
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("googleSub") }.ValidateAndThrow(googleSub);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("email") }.ValidateAndThrow(email);
+        ArgumentNullException.ThrowIfNull(claimsIdentity);
 
         await RetryPolicy.ExecuteAsync(async ct =>
         {

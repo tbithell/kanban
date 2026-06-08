@@ -1,4 +1,5 @@
 using System.Data;
+using FluentValidation;
 using Kanban.Business.Interfaces;
 using Kanban.Business.Transforms;
 using Kanban.Contracts;
@@ -20,6 +21,7 @@ public sealed class InvitationService : IInvitationService
     private readonly IUserRepository _userRepository;
     private readonly IInvitationRepository _invitationRepository;
     private readonly IAuthEventRepository _authEventRepository;
+    private readonly IBoardMemberRepository _boardMemberRepository;
     private readonly IDbConnection _dbConnection;
     private readonly IDbConnectionFactory _transactionFactory;
     private readonly ILogger<InvitationService> _logger;
@@ -42,19 +44,22 @@ public sealed class InvitationService : IInvitationService
         IUserRepository userRepository,
         IInvitationRepository invitationRepository,
         IAuthEventRepository authEventRepository,
+        IBoardMemberRepository boardMemberRepository,
         IDbConnection dbConnection,
         IDbConnectionFactory transactionFactory,
         ILogger<InvitationService> logger)
     {
-        Verify.That(userRepository).IsNotNull();
-        Verify.That(invitationRepository).IsNotNull();
-        Verify.That(authEventRepository).IsNotNull();
-        Verify.That(dbConnection).IsNotNull();
-        Verify.That(transactionFactory).IsNotNull();
-        Verify.That(logger).IsNotNull();
+        ArgumentNullException.ThrowIfNull(userRepository);
+        ArgumentNullException.ThrowIfNull(invitationRepository);
+        ArgumentNullException.ThrowIfNull(authEventRepository);
+        ArgumentNullException.ThrowIfNull(boardMemberRepository);
+        ArgumentNullException.ThrowIfNull(dbConnection);
+        ArgumentNullException.ThrowIfNull(transactionFactory);
+        ArgumentNullException.ThrowIfNull(logger);
         _userRepository = userRepository;
         _invitationRepository = invitationRepository;
         _authEventRepository = authEventRepository;
+        _boardMemberRepository = boardMemberRepository;
         _dbConnection = dbConnection;
         _transactionFactory = transactionFactory;
         _logger = logger;
@@ -65,13 +70,17 @@ public sealed class InvitationService : IInvitationService
         Guid issuedByUserId,
         SystemRole callerRole,
         string frontendBaseUrl,
+        Guid? boardId = null,
+        BoardRole? boardRole = null,
         CancellationToken cancellationToken = default)
     {
-        Verify.That(email).IsNotNull().IsNotEmpty();
-        Verify.That(issuedByUserId).IsNotDefault();
-        Verify.That(frontendBaseUrl).IsNotNull().IsNotEmpty();
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("email") }.ValidateAndThrow(email);
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("issuedByUserId") }.ValidateAndThrow(issuedByUserId);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("frontendBaseUrl") }.ValidateAndThrow(frontendBaseUrl);
 
-        if (callerRole != SystemRole.Admin)
+        // System invitations require admin. Board invitations are pre-authorised by the caller
+        // (BoardMembershipService checks board role before calling here).
+        if (boardId is null && callerRole != SystemRole.Admin)
             throw new ForbiddenException("invite.forbidden", "Only admins can issue invitations.");
 
         return await RetryPolicy.ExecuteAsync(async ct =>
@@ -107,7 +116,9 @@ public sealed class InvitationService : IInvitationService
                     issuedAt: issuedAt,
                     expiresAt: issuedAt.AddDays(7),
                     consumedAt: null,
-                    consumedByUserId: null);
+                    consumedByUserId: null,
+                    boardId: boardId,
+                    boardRole: boardRole);
 
                 await _invitationRepository.InsertAsync(invitation, tx);
 
@@ -134,17 +145,17 @@ public sealed class InvitationService : IInvitationService
         }, cancellationToken);
     }
 
-    public async Task<User> AcceptAsync(
+    public async Task<(User User, Guid? BoardId)> AcceptAsync(
         string rawToken,
         string googleEmail,
         string googleSub,
         string displayName,
         CancellationToken cancellationToken = default)
     {
-        Verify.That(rawToken).IsNotNull().IsNotEmpty();
-        Verify.That(googleEmail).IsNotNull().IsNotEmpty();
-        Verify.That(googleSub).IsNotNull().IsNotEmpty();
-        Verify.That(displayName).IsNotNull().IsNotEmpty();
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("rawToken") }.ValidateAndThrow(rawToken);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("googleEmail") }.ValidateAndThrow(googleEmail);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("googleSub") }.ValidateAndThrow(googleSub);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("displayName") }.ValidateAndThrow(displayName);
 
         return await RetryPolicy.ExecuteAsync(async ct =>
         {
@@ -171,6 +182,12 @@ public sealed class InvitationService : IInvitationService
                         "invite.email_mismatch",
                         "This invitation was issued to a different email address.");
 
+                var existingUser = await _userRepository.FindByEmailAsync(invitation.Email, tx);
+                if (existingUser is not null)
+                    throw new ConflictException(
+                        "invite.already_registered",
+                        "This email address is already registered.");
+
                 var user = new User(
                     id: newUserId,
                     email: invitation.Email,
@@ -183,6 +200,18 @@ public sealed class InvitationService : IInvitationService
                 await _userRepository.InsertAsync(user, tx);
                 await _invitationRepository.RecordConsumerAsync(tokenHash, newUserId, tx);
 
+                if (invitation.BoardId.HasValue && invitation.BoardRole.HasValue)
+                {
+                    var boardMember = new BoardMember(
+                        id: Guid.NewGuid(),
+                        boardId: invitation.BoardId.Value,
+                        userId: newUserId,
+                        role: invitation.BoardRole.Value,
+                        invitedByUserId: invitation.IssuedByUserId,
+                        joinedAt: acceptedAt);
+                    await _boardMemberRepository.InsertAsync(boardMember, tx);
+                }
+
                 var authEvent = new AuthEvent(
                     Id: Guid.NewGuid(),
                     OccurredAt: acceptedAt,
@@ -194,7 +223,7 @@ public sealed class InvitationService : IInvitationService
                 tx.Commit();
 
                 _logger.LogInformation("Invitation accepted by user {UserId}", newUserId);
-                return user;
+                return (user, invitation.BoardId);
             }
             catch
             {

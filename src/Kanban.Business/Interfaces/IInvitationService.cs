@@ -11,9 +11,11 @@ public interface IInvitationService
         Guid issuedByUserId,
         SystemRole callerRole,
         string frontendBaseUrl,
+        Guid? boardId = null,
+        BoardRole? boardRole = null,
         CancellationToken cancellationToken = default);
 
-    Task<User> AcceptAsync(
+    Task<(User User, Guid? BoardId)> AcceptAsync(
         string rawToken,
         string googleEmail,
         string googleSub,
