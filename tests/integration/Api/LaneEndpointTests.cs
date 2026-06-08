@@ -174,7 +174,7 @@ public sealed class LaneEndpointTests : IClassFixture<KanbanWebAppFactory>
 
         var response = await client.PostAsJsonAsync(
             $"/api/v1/boards/{boardId}/lanes/{lane1Id}/move",
-            new { newPosition = 3, expectedVersion = 1 });
+            new { targetPosition = 3, expectedVersion = 1 });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }

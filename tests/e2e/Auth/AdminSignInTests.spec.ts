@@ -7,7 +7,7 @@ test.describe('US1 scenario 1+2 — admin signs in and is recognized', () => {
   test('scenario 1 — admin OAuth completes and app is accessible', async ({ page }) => {
     await page.goto('/')
     await expect(page).not.toHaveURL(/\/signin/)
-    await expect(page.getByRole('main', { name: /kanban board/i })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /boards/i })).toBeVisible()
   })
 
   test('scenario 2 — subsequent sign-in is recognized; /auth/me returns admin role', async ({

@@ -2,6 +2,7 @@ using System.Data;
 using FluentAssertions;
 using FluentValidation;
 using Kanban.Business.Services;
+using Kanban.Business.Interfaces;
 using Kanban.Contracts;
 using Kanban.DataAccess.Interfaces;
 using Kanban.Domain.Entities;
@@ -46,6 +47,11 @@ public sealed class BoardServiceTests
                 It.IsAny<object?>(),
                 It.IsAny<string>()))
             .ReturnsAsync(AuthorizationResult.Success());
+        mock.Setup(s => s.AuthorizeAsync(
+                It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
+                It.IsAny<object?>(),
+                It.IsAny<IEnumerable<IAuthorizationRequirement>>()))
+            .ReturnsAsync(AuthorizationResult.Success());
         return mock.Object;
     }
 
@@ -56,6 +62,11 @@ public sealed class BoardServiceTests
                 It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
                 It.IsAny<object?>(),
                 It.IsAny<string>()))
+            .ReturnsAsync(AuthorizationResult.Failed());
+        mock.Setup(s => s.AuthorizeAsync(
+                It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
+                It.IsAny<object?>(),
+                It.IsAny<IEnumerable<IAuthorizationRequirement>>()))
             .ReturnsAsync(AuthorizationResult.Failed());
         return mock.Object;
     }
@@ -72,7 +83,7 @@ public sealed class BoardServiceTests
 
         result.Should().NotBeNull();
         result.Name.Should().Be("My Board");
-        result.CallerRole.Should().Be("Owner");
+        result.CallerRole.Should().Be(BoardRoleDto.Owner);
         repo.InsertedBoard.Should().NotBeNull();
     }
 
@@ -246,7 +257,7 @@ public sealed class BoardServiceTests
             => Task.FromResult<IReadOnlyList<BoardMember>>([]);
     }
 
-    private sealed class FakeCurrentUserService : Kanban.Api.Auth.ICurrentUserService
+    private sealed class FakeCurrentUserService : ICurrentUserServiceFake
     {
         public FakeCurrentUserService(Guid userId, string systemRole)
         {
@@ -260,6 +271,7 @@ public sealed class BoardServiceTests
         public bool IsRegistered { get; }
         public Guid? UserId { get; }
         public string? SystemRole { get; }
+        public System.Security.Claims.ClaimsPrincipal Principal { get; } = new();
     }
 
     private sealed class FakeDbConnectionFactory : IDbConnectionFactory
@@ -268,5 +280,5 @@ public sealed class BoardServiceTests
             => connection.BeginTransaction();
     }
 
-    public interface ICurrentUserServiceFake : Kanban.Api.Auth.ICurrentUserService { }
+    public interface ICurrentUserServiceFake : Kanban.Business.Interfaces.ICurrentUserService { }
 }

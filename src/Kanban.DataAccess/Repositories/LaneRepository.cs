@@ -99,6 +99,15 @@ public sealed class LaneRepository : ILaneRepository
         }, transaction: tx);
     }
 
+    public async Task SetPositionAsync(Guid laneId, int position, IDbTransaction tx)
+    {
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("laneId") }.ValidateAndThrow(laneId);
+        ArgumentNullException.ThrowIfNull(tx);
+
+        const string sql = "UPDATE lanes SET position = @position WHERE id = @laneId";
+        await _connection.ExecuteAsync(sql, new { laneId = laneId.ToString("D"), position }, transaction: tx);
+    }
+
     public async Task ShiftPositionsAsync(Guid boardId, int fromPosition, int toPosition, int delta, IDbTransaction tx)
     {
         new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }.ValidateAndThrow(boardId);
@@ -145,7 +154,7 @@ public sealed class LaneRepository : ILaneRepository
         new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }.ValidateAndThrow(boardId);
         new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("name") }.ValidateAndThrow(name);
 
-        const string sql = "SELECT COUNT(*) FROM lanes WHERE board_id = @boardId AND name = @name COLLATE NOCASE";
+        const string sql = "SELECT COUNT(*) FROM lanes WHERE board_id = @boardId AND LOWER(name) = LOWER(@name)";
         var count = await _connection.QuerySingleAsync<int>(
             sql, new { boardId = boardId.ToString("D"), name }, transaction: tx);
         return count > 0;

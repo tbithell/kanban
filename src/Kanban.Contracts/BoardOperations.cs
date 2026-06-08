@@ -1,4 +1,4 @@
-namespace Kanban.Api.Auth;
+namespace Kanban.Contracts;
 
 public static class BoardOperations
 {

@@ -6,6 +6,7 @@ using DbUp;
 using DbUp.Sqlite;
 using Kanban.AntiCorruption.Adapters;
 using Kanban.Api.Auth;
+using Kanban.Contracts;
 using Kanban.Api.ErrorHandling;
 using Kanban.Api.Health;
 using Kanban.Api.Options;
@@ -123,6 +124,8 @@ builder.Services.AddValidatorsFromAssemblyContaining<IssueInviteRequestValidator
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthorizationHandler, RegisteredUserHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, BoardAuthorizationHandler>();
+builder.Services.AddScoped<IBoardService, BoardService>();
+builder.Services.AddScoped<ILaneService, LaneService>();
 
 builder.Services.AddAuthentication(options =>
     {
@@ -367,6 +370,8 @@ var v1RegisteredUserGroup = v1.MapGroup("/api/v1")
     .RequireAuthorization("RegisteredUser");
 AuthEndpoints.Map(v1RegisteredUserGroup);
 InviteEndpoints.Map(v1RegisteredUserGroup);
+BoardEndpoints.Map(v1RegisteredUserGroup);
+LaneEndpoints.Map(v1RegisteredUserGroup);
 
 var v1GoogleAuthGroup = v1.MapGroup("/api/v1")
     .HasApiVersion(1, 0)

@@ -1,6 +1,7 @@
 using System.Data;
 using FluentAssertions;
 using Kanban.Business.Services;
+using Kanban.Business.Interfaces;
 using Kanban.Contracts;
 using Kanban.DataAccess.Interfaces;
 using Kanban.Domain.Entities;
@@ -49,6 +50,11 @@ public sealed class LaneServiceTests
                 It.IsAny<object?>(),
                 It.IsAny<string>()))
             .ReturnsAsync(AuthorizationResult.Success());
+        mock.Setup(s => s.AuthorizeAsync(
+                It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
+                It.IsAny<object?>(),
+                It.IsAny<IEnumerable<IAuthorizationRequirement>>()))
+            .ReturnsAsync(AuthorizationResult.Success());
         return mock.Object;
     }
 
@@ -59,6 +65,11 @@ public sealed class LaneServiceTests
                 It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
                 It.IsAny<object?>(),
                 It.IsAny<string>()))
+            .ReturnsAsync(AuthorizationResult.Failed());
+        mock.Setup(s => s.AuthorizeAsync(
+                It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
+                It.IsAny<object?>(),
+                It.IsAny<IEnumerable<IAuthorizationRequirement>>()))
             .ReturnsAsync(AuthorizationResult.Failed());
         return mock.Object;
     }
@@ -256,9 +267,12 @@ public sealed class LaneServiceTests
             => Task.CompletedTask;
 
         public Task<int> UpdatePositionAsync(Guid laneId, int newPosition, int expectedVersion, IDbTransaction tx)
+            => Task.FromResult(_updatePositionRows);
+
+        public Task SetPositionAsync(Guid laneId, int position, IDbTransaction tx)
         {
-            MovedToPosition = newPosition;
-            return Task.FromResult(_updatePositionRows);
+            MovedToPosition = position;
+            return Task.CompletedTask;
         }
 
         public Task ShiftPositionsAsync(Guid boardId, int fromPosition, int toPosition, int delta, IDbTransaction tx)
@@ -323,7 +337,7 @@ public sealed class LaneServiceTests
             => Task.FromResult<IReadOnlyList<BoardMember>>([]);
     }
 
-    private sealed class FakeCurrentUserService : Kanban.Api.Auth.ICurrentUserService
+    private sealed class FakeCurrentUserService : Kanban.Business.Interfaces.ICurrentUserService
     {
         public FakeCurrentUserService(Guid userId, string systemRole)
         {
@@ -337,6 +351,7 @@ public sealed class LaneServiceTests
         public bool IsRegistered { get; }
         public Guid? UserId { get; }
         public string? SystemRole { get; }
+        public System.Security.Claims.ClaimsPrincipal Principal { get; } = new();
     }
 
     private sealed class FakeDbConnectionFactory : IDbConnectionFactory
