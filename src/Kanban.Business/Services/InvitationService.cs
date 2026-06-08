@@ -1,4 +1,5 @@
 using System.Data;
+using FluentValidation;
 using Kanban.Business.Interfaces;
 using Kanban.Business.Transforms;
 using Kanban.Contracts;
@@ -48,13 +49,13 @@ public sealed class InvitationService : IInvitationService
         IDbConnectionFactory transactionFactory,
         ILogger<InvitationService> logger)
     {
-        Verify.That(userRepository).IsNotNull();
-        Verify.That(invitationRepository).IsNotNull();
-        Verify.That(authEventRepository).IsNotNull();
-        Verify.That(boardMemberRepository).IsNotNull();
-        Verify.That(dbConnection).IsNotNull();
-        Verify.That(transactionFactory).IsNotNull();
-        Verify.That(logger).IsNotNull();
+        ArgumentNullException.ThrowIfNull(userRepository);
+        ArgumentNullException.ThrowIfNull(invitationRepository);
+        ArgumentNullException.ThrowIfNull(authEventRepository);
+        ArgumentNullException.ThrowIfNull(boardMemberRepository);
+        ArgumentNullException.ThrowIfNull(dbConnection);
+        ArgumentNullException.ThrowIfNull(transactionFactory);
+        ArgumentNullException.ThrowIfNull(logger);
         _userRepository = userRepository;
         _invitationRepository = invitationRepository;
         _authEventRepository = authEventRepository;
@@ -73,9 +74,9 @@ public sealed class InvitationService : IInvitationService
         BoardRole? boardRole = null,
         CancellationToken cancellationToken = default)
     {
-        Verify.That(email).IsNotNull().IsNotEmpty();
-        Verify.That(issuedByUserId).IsNotDefault();
-        Verify.That(frontendBaseUrl).IsNotNull().IsNotEmpty();
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("email") }.ValidateAndThrow(email);
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("issuedByUserId") }.ValidateAndThrow(issuedByUserId);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("frontendBaseUrl") }.ValidateAndThrow(frontendBaseUrl);
 
         // System invitations require admin. Board invitations are pre-authorised by the caller
         // (BoardMembershipService checks board role before calling here).
@@ -151,10 +152,10 @@ public sealed class InvitationService : IInvitationService
         string displayName,
         CancellationToken cancellationToken = default)
     {
-        Verify.That(rawToken).IsNotNull().IsNotEmpty();
-        Verify.That(googleEmail).IsNotNull().IsNotEmpty();
-        Verify.That(googleSub).IsNotNull().IsNotEmpty();
-        Verify.That(displayName).IsNotNull().IsNotEmpty();
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("rawToken") }.ValidateAndThrow(rawToken);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("googleEmail") }.ValidateAndThrow(googleEmail);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("googleSub") }.ValidateAndThrow(googleSub);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("displayName") }.ValidateAndThrow(displayName);
 
         return await RetryPolicy.ExecuteAsync(async ct =>
         {

@@ -1,16 +1,24 @@
 <!--
 SYNC IMPACT REPORT
-Version: 1.7.1 → 1.7.2 (PATCH — Clarify Vitest as frontend test runner)
-Modified Principles: none
+Version: 1.7.7 → 1.8.0 (MINOR — Replace Verify guard-clause pattern with FluentValidation)
+Modified Principles: none (Core Principles I–IX unchanged)
 Added Sections: none
 Modified Sections:
-  - Principle II TDD — Component test layer now says Vitest (not Jest); Vite projects
-    use Vitest as the idiomatic Jest-compatible runner. All RTL APIs are unchanged.
-  - Stack & Constraints table — Frontend component tests updated to Vitest
-  - CI/CD pipeline shape updated to reflect Vitest
+  - Error Handling / Parameter Verification — section renamed to
+    "Input Validation — FluentValidation"; Verify class and all extension classes removed;
+    FluentValidation AbstractValidator<T> / InlineValidator<T> + ValidateAndThrow() is now
+    the single validation mechanism for all layers (both API boundary 400 path and inner
+    layer 422 path)
+  - Error Handling / Custom Exception Hierarchy — FluentValidation.ValidationException
+    added as → 422 mapping alongside the KanbanException hierarchy
+  - Error Handling / IExceptionHandler Chain — DomainExceptionHandler description updated
+    to include ValidationException handling
+  - MVP Implementation Order / Section Scoping — "Verify" reference replaced with
+    "FluentValidation inner-layer guards"
 Removed Sections: none
-Stack Table: Frontend component tests: React Testing Library + Vitest
-Templates: no changes required
+Templates: .specify/templates/plan-template.md — Constitution Check gate row for
+  "Verify class in non-API public methods" should be updated to reference
+  "FluentValidation validators in non-API public methods" ⚠ pending manual update
 Deferred TODOs: none
 -->
 
@@ -732,77 +740,88 @@ KanbanException (abstract base)
 └── InfrastructureException (abstract)
     ├── DataAccessException         → 500 (DB failure after Polly exhausted)
     └── ExternalServiceException    → 502 (Google OAuth, ACL failures)
+
+FluentValidation.ValidationException  → 422 (inner-layer guard validation failures)
 ```
 
-Each exception carries a `Code` string (e.g. `"board.not_found"`) surfaced in the Problem
-Details `code` extension field for typed frontend error handling.
+Each domain/infrastructure exception carries a `Code` string (e.g. `"board.not_found"`)
+surfaced in the Problem Details `code` extension field for typed frontend error handling.
+`ValidationException` responses use `code: "validation.failed"` and include the structured
+`Errors` collection in the Problem Details `errors` extension field.
 
 ### IExceptionHandler Chain
 
-- **`DomainExceptionHandler`** — maps `DomainException` hierarchy to status codes; writes
-  Problem Details with `code` and `traceId`
+- **`DomainExceptionHandler`** — maps `DomainException` hierarchy AND
+  `FluentValidation.ValidationException` to status codes; writes Problem Details with
+  `code`, `traceId`, and (for `ValidationException`) an `errors` field
 - **`InfrastructureExceptionHandler`** — maps `InfrastructureException` hierarchy
 - **`FallbackExceptionHandler`** — logs the full exception at `Error` level internally;
   returns ONLY `{ title: "An unexpected error occurred", traceId: "..." }` to the client —
   no `detail`, no stack trace, no internal names
 
-### Parameter Verification — Fluent `Verify` Class
+### Input Validation — FluentValidation
 
-Lives in `Kanban.Domain` (no dependencies; accessible to all layers).
+**FluentValidation is the single validation mechanism for all layers.** There is no
+separate guard-clause class. The same library, the same exception type, and the same
+error-handling path apply whether input arrives from a user request or from an internal
+method call.
 
-**Rule:** ALL public method parameters that are non-nullable and non-optional MUST be verified
-as the very first statements in the method body. Nullable (`string?`, `Guid?`) and optional
-(default value) parameters are exempt.
+**Two validation tiers, one library:**
+
+| Tier | Where | How | HTTP outcome |
+|------|-------|-----|--------------|
+| API boundary (DTO validation) | `Kanban.Api` endpoint handlers | `FluentValidation` on request DTOs via `AddFluentValidationAutoValidation()` | `400 Bad Request` — user-supplied input errors |
+| Inner layers (guard validation) | `Kanban.Business`, `Kanban.DataAccess`, `Kanban.Domain`, `Kanban.AntiCorruption` | `AbstractValidator<T>` or `InlineValidator<T>` with `.ValidateAndThrow()` | `422 Unprocessable Entity` — programming contract violations |
+
+**Rule:** ALL public method parameters that are non-nullable and non-optional MUST be
+validated as the very first statements in the method body using a FluentValidation
+validator. Nullable (`string?`, `Guid?`) and optional (default value) parameters are
+exempt.
 
 ```csharp
-// Static entry point — CallerArgumentExpression captures param name automatically
-public static class Verify
+// Preferred: named validator class for reuse across the service
+public sealed class CreateCardValidator : AbstractValidator<CreateCardCommand>
 {
-    public static ParameterVerifier<T> That<T>(
-        T value,
-        [CallerArgumentExpression(nameof(value))] string paramName = "")
-        => new(value, paramName);
+    public CreateCardValidator()
+    {
+        RuleFor(x => x.Title).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.LaneId).NotEmpty();
+        RuleFor(x => x.Position).GreaterThanOrEqualTo(0);
+    }
 }
 
-// Usage — no nameof() required
-public Card CreateCard(string title, Guid laneId, int position, string? description)
+// Usage in the service method — validator injected or instantiated inline
+public async Task<Card> CreateCardAsync(CreateCardCommand command)
 {
-    Verify.That(title).IsNotNull().IsNotEmpty().HasMaxLength(200);
-    Verify.That(laneId).IsNotDefault();
-    Verify.That(position).IsNonNegative();
-    // description is nullable — exempt
+    new CreateCardValidator().ValidateAndThrow(command);
+    // proceed with business logic
 }
 ```
 
-**`ParameterVerifier<T>` core methods:** `IsNotNull()` → `ArgumentNullException`,
-`IsNotDefault()` → `ArgumentException` (catches `Guid.Empty`, `0`, `false`, etc.)
+```csharp
+// Acceptable for simple single-method validation of primitive inputs
+public async Task<Board> GetBoardAsync(Guid boardId)
+{
+    new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEmpty() }
+        .ValidateAndThrow(boardId);
+    // proceed
+}
+```
 
-**Type-specific extension methods (generic constraints):**
+`ValidateAndThrow()` raises `FluentValidation.ValidationException` — mapped to
+`422 Unprocessable Entity` by `DomainExceptionHandler`. The `Errors` collection on the
+exception carries structured field-level messages, which `DomainExceptionHandler` includes
+in the Problem Details `errors` extension field for typed frontend error handling.
 
-| Extension | Constraint | Checks |
-|-----------|-----------|--------|
-| `IsNotEmpty()` | `ParameterVerifier<string>` | non-empty string |
-| `HasMaxLength(int)` | `ParameterVerifier<string>` | length ≤ max |
-| `IsNotEmpty<T>()` | `IEnumerable<T>` | non-empty collection |
-| `IsPositive<T>()` | `INumber<T>` (.NET 10) | value > 0 |
-| `IsNonNegative<T>()` | `INumber<T>` (.NET 10) | value ≥ 0 |
-| `IsGreaterThan<T>(T)` | `IComparable<T>` | value > threshold |
-| `IsInRange<T>(T, T)` | `IComparable<T>` | min ≤ value ≤ max |
-
-`Verify` throws `ArgumentNullException` / `ArgumentException` — programming errors that map
-to `500` via `FallbackExceptionHandler`. If `Verify` fires in production, a layer boundary
-failed to validate before calling. `FluentValidation` on DTOs catches user-input problems
-before they ever reach a `Verify` call.
-
-**Scope:**
+**Scope (FluentValidation required in all non-API layers):**
 
 | Layer | Required? |
 |-------|-----------|
-| `Kanban.Business` services | Yes |
-| `Kanban.DataAccess` repositories | Yes |
-| `Kanban.Domain` entity / value object constructors and methods | Yes |
-| `Kanban.AntiCorruption` adapters | Yes |
-| `Kanban.Api` endpoint handlers | No — `FluentValidation` handles the API boundary |
+| `Kanban.Business` services | Yes — validator per command/input object |
+| `Kanban.DataAccess` repositories | Yes — inline validator on primitive inputs |
+| `Kanban.Domain` entity / value object constructors and methods | Yes — inline validator |
+| `Kanban.AntiCorruption` adapters | Yes — inline validator |
+| `Kanban.Api` endpoint handlers | Yes — DTO validators via auto-validation middleware (400 path) |
 
 ### Frontend Error Handling
 
@@ -1738,7 +1757,6 @@ contributors — human and AI.
 - Commits MUST be made after each completed task.
 - A failing-test commit MUST precede the passing-implementation commit (TDD evidence in
   history).
-- AI session logs MUST be appended to `SESSION_LOG.md` after each working session.
 - All four test layers MUST pass before a feature branch is merged.
 - NFR gates (maintainability, usability, performance) MUST be verified before merge.
 - Snyk MUST show no medium, high, or critical severity findings before merge.
@@ -2200,7 +2218,7 @@ The MVP MUST NOT include:
 
 | Scope | Sections |
 |-------|----------|
-| **(a) Implement now** — required for the four-test-layer local demo | Principles I–IX, Solution Structure, DDD Constraints, Domain Model, Authorization Model, Transaction Pattern, Database Portability (SQLite path only), Error Handling (including `Verify` and frontend boundaries), Frontend State Management, Drag and Drop, CORS, API Versioning (v1 only), OpenAPI (Scalar dev UI), Logging (ILogger + correlation ID), Local Secrets Management, Configuration & Options Pattern, Code Quality Tooling, Developer Onboarding, Test Data Builders, HTTP Resilience, Security Headers, Health & Lifecycle endpoints, CI/CD Gates (tests + Snyk + gitleaks only; no container publish) |
+| **(a) Implement now** — required for the four-test-layer local demo | Principles I–IX, Solution Structure, DDD Constraints, Domain Model, Authorization Model, Transaction Pattern, Database Portability (SQLite path only), Error Handling (including FluentValidation inner-layer guards and frontend boundaries), Frontend State Management, Drag and Drop, CORS, API Versioning (v1 only), OpenAPI (Scalar dev UI), Logging (ILogger + correlation ID), Local Secrets Management, Configuration & Options Pattern, Code Quality Tooling, Developer Onboarding, Test Data Builders, HTTP Resilience, Security Headers, Health & Lifecycle endpoints, CI/CD Gates (tests + Snyk + gitleaks only; no container publish) |
 | **(b) Wire the seam, stub the implementation** — architectural decision recorded, no infrastructure built | Multi-Tenancy Readiness (no `TenantContext` instance); OpenTelemetry exporter (registered, OTLP endpoint env-var driven, no required local backend); Rate Limiting (registered with permissive limits, no stress testing); Containerization Readiness (no Dockerfile authored); Testcontainers Postgres (CI matrix optional, SQLite-only CI acceptable); Frontend Build & Deploy Model (Vite dev server is the only deployment path); Bundle Size Budget (target documented, no CI enforcement) |
 | **(c) Defer entirely** — promote when deployment work begins | Distributed Rate Limiting; Postgres production runtime; APIM integration; `openapi-typescript` client generation; nonce-based CSP; container deploy; nginx-alpine production image; Snyk Container scanning; GHCR image publish; HSTS preload; multi-replica migration coordination |
 
@@ -2230,4 +2248,4 @@ Amendments require: (1) documented rationale, (2) version bump per the policy be
 All implementation tasks and AI agent outputs MUST be verified for compliance with this
 constitution before a task is marked complete.
 
-**Version**: 1.7.7 | **Ratified**: 2026-05-23 | **Last Amended**: 2026-06-01
+**Version**: 1.8.1 | **Ratified**: 2026-05-23 | **Last Amended**: 2026-06-07

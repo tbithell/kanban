@@ -1,5 +1,6 @@
 using System.Data;
 using Dapper;
+using FluentValidation;
 using Kanban.DataAccess.Interfaces;
 using Kanban.Domain;
 using Kanban.Domain.Entities;
@@ -13,13 +14,13 @@ public sealed class UserRepository : IUserRepository
 
     public UserRepository(IDbConnection connection)
     {
-        Verify.That(connection).IsNotNull();
+        ArgumentNullException.ThrowIfNull(connection);
         _connection = connection;
     }
 
     public async Task<User?> FindByGoogleSubAsync(string googleSub, IDbTransaction? tx = null)
     {
-        Verify.That(googleSub).IsNotNull().IsNotEmpty();
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("googleSub") }.ValidateAndThrow(googleSub);
 
         const string sql = """
             SELECT id, email, display_name AS DisplayName, system_role AS SystemRole,
@@ -35,7 +36,7 @@ public sealed class UserRepository : IUserRepository
 
     public async Task<User?> FindByEmailAsync(string email, IDbTransaction? tx = null)
     {
-        Verify.That(email).IsNotNull().IsNotEmpty();
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("email") }.ValidateAndThrow(email);
 
         const string sql = """
             SELECT id, email, display_name AS DisplayName, system_role AS SystemRole,
@@ -51,7 +52,7 @@ public sealed class UserRepository : IUserRepository
 
     public async Task<User?> FindByIdAsync(Guid id, IDbTransaction? tx = null)
     {
-        Verify.That(id).IsNotDefault();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("id") }.ValidateAndThrow(id);
 
         const string sql = """
             SELECT id, email, display_name AS DisplayName, system_role AS SystemRole,
@@ -67,8 +68,8 @@ public sealed class UserRepository : IUserRepository
 
     public async Task InsertAsync(User user, IDbTransaction tx)
     {
-        Verify.That(user).IsNotNull();
-        Verify.That(tx).IsNotNull();
+        ArgumentNullException.ThrowIfNull(user);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             INSERT INTO users (id, email, display_name, system_role, google_sub, registered_at, last_sign_in_at)
@@ -89,9 +90,9 @@ public sealed class UserRepository : IUserRepository
 
     public async Task LinkGoogleSubAsync(Guid userId, string googleSub, IDbTransaction tx)
     {
-        Verify.That(userId).IsNotDefault();
-        Verify.That(googleSub).IsNotNull().IsNotEmpty();
-        Verify.That(tx).IsNotNull();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("userId") }.ValidateAndThrow(userId);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("googleSub") }.ValidateAndThrow(googleSub);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             UPDATE users SET google_sub = @googleSub WHERE id = @userId
@@ -105,8 +106,8 @@ public sealed class UserRepository : IUserRepository
 
     public async Task UpdateLastSignInAsync(Guid userId, DateTimeOffset signedInAt, IDbTransaction tx)
     {
-        Verify.That(userId).IsNotDefault();
-        Verify.That(tx).IsNotNull();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("userId") }.ValidateAndThrow(userId);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             UPDATE users SET last_sign_in_at = @signedInAt WHERE id = @userId

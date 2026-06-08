@@ -1,3 +1,4 @@
+using FluentValidation;
 using Kanban.Domain.Enums;
 
 namespace Kanban.Domain.Entities;
@@ -15,9 +16,9 @@ public sealed class User
     public User(Guid id, string email, string displayName, SystemRole systemRole,
                 string? googleSub, DateTimeOffset registeredAt, DateTimeOffset? lastSignInAt)
     {
-        Verify.That(id).IsNotDefault();
-        Verify.That(email).IsNotNull().IsNotEmpty();
-        Verify.That(displayName).IsNotNull().IsNotEmpty();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("id") }.ValidateAndThrow(id);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("email") }.ValidateAndThrow(email);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("displayName") }.ValidateAndThrow(displayName);
 
         Id = id;
         Email = email;
@@ -30,7 +31,7 @@ public sealed class User
 
     public void LinkGoogleIdentity(string googleSub)
     {
-        Verify.That(googleSub).IsNotNull().IsNotEmpty();
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("googleSub") }.ValidateAndThrow(googleSub);
         GoogleSub = googleSub;
     }
 

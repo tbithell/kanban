@@ -1,5 +1,6 @@
 using System.Data;
 using Dapper;
+using FluentValidation;
 using Kanban.DataAccess.Interfaces;
 using Kanban.Domain;
 using Kanban.Domain.Entities;
@@ -12,14 +13,14 @@ public sealed class BoardRepository : IBoardRepository
 
     public BoardRepository(IDbConnection connection)
     {
-        Verify.That(connection).IsNotNull();
+        ArgumentNullException.ThrowIfNull(connection);
         _connection = connection;
     }
 
     public async Task<Board?> FindBoardForMemberAsync(Guid boardId, Guid userId, IDbTransaction? tx = null)
     {
-        Verify.That(boardId).IsNotDefault();
-        Verify.That(userId).IsNotDefault();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }.ValidateAndThrow(boardId);
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("userId") }.ValidateAndThrow(userId);
 
         const string sql = """
             SELECT b.id, b.name, b.created_by_user_id AS CreatedByUserId, b.created_at AS CreatedAt
@@ -35,7 +36,7 @@ public sealed class BoardRepository : IBoardRepository
 
     public async Task<IReadOnlyList<Board>> FindBoardsForUserAsync(Guid userId, IDbTransaction? tx = null)
     {
-        Verify.That(userId).IsNotDefault();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("userId") }.ValidateAndThrow(userId);
 
         const string sql = """
             SELECT b.id, b.name, b.created_by_user_id AS CreatedByUserId, b.created_at AS CreatedAt
@@ -52,8 +53,8 @@ public sealed class BoardRepository : IBoardRepository
 
     public async Task InsertAsync(Board board, IDbTransaction tx)
     {
-        Verify.That(board).IsNotNull();
-        Verify.That(tx).IsNotNull();
+        ArgumentNullException.ThrowIfNull(board);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             INSERT INTO boards (id, name, created_by_user_id, created_at)
@@ -71,7 +72,7 @@ public sealed class BoardRepository : IBoardRepository
 
     public async Task<bool> ExistsWithNameAsync(string name, IDbTransaction? tx = null)
     {
-        Verify.That(name).IsNotNull().IsNotEmpty();
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("name") }.ValidateAndThrow(name);
 
         const string sql = "SELECT COUNT(*) FROM boards WHERE name = @name";
         var count = await _connection.QuerySingleAsync<int>(sql, new { name }, transaction: tx);
@@ -80,8 +81,8 @@ public sealed class BoardRepository : IBoardRepository
 
     public async Task DeleteAsync(Guid boardId, IDbTransaction tx)
     {
-        Verify.That(boardId).IsNotDefault();
-        Verify.That(tx).IsNotNull();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }.ValidateAndThrow(boardId);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = "DELETE FROM boards WHERE id = @boardId";
         await _connection.ExecuteAsync(sql, new { boardId = boardId.ToString("D") }, transaction: tx);

@@ -1,5 +1,6 @@
 using System.Data;
 using Dapper;
+using FluentValidation;
 using Kanban.DataAccess.Interfaces;
 using Kanban.Domain;
 using Kanban.Domain.Entities;
@@ -13,14 +14,14 @@ public sealed class BoardMemberRepository : IBoardMemberRepository
 
     public BoardMemberRepository(IDbConnection connection)
     {
-        Verify.That(connection).IsNotNull();
+        ArgumentNullException.ThrowIfNull(connection);
         _connection = connection;
     }
 
     public async Task<BoardRole?> FindRoleAsync(Guid boardId, Guid userId, IDbTransaction? tx = null)
     {
-        Verify.That(boardId).IsNotDefault();
-        Verify.That(userId).IsNotDefault();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }.ValidateAndThrow(boardId);
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("userId") }.ValidateAndThrow(userId);
 
         const string sql = """
             SELECT role FROM board_members
@@ -35,7 +36,7 @@ public sealed class BoardMemberRepository : IBoardMemberRepository
 
     public async Task<int> CountOwnersAsync(Guid boardId, IDbTransaction? tx = null)
     {
-        Verify.That(boardId).IsNotDefault();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }.ValidateAndThrow(boardId);
 
         const string sql = """
             SELECT COUNT(*) FROM board_members
@@ -48,8 +49,8 @@ public sealed class BoardMemberRepository : IBoardMemberRepository
 
     public async Task InsertAsync(BoardMember member, IDbTransaction tx)
     {
-        Verify.That(member).IsNotNull();
-        Verify.That(tx).IsNotNull();
+        ArgumentNullException.ThrowIfNull(member);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             INSERT INTO board_members (id, board_id, user_id, role, invited_by_user_id, joined_at)
@@ -69,9 +70,9 @@ public sealed class BoardMemberRepository : IBoardMemberRepository
 
     public async Task DeleteAsync(Guid boardId, Guid userId, IDbTransaction tx)
     {
-        Verify.That(boardId).IsNotDefault();
-        Verify.That(userId).IsNotDefault();
-        Verify.That(tx).IsNotNull();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }.ValidateAndThrow(boardId);
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("userId") }.ValidateAndThrow(userId);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             DELETE FROM board_members
@@ -84,9 +85,9 @@ public sealed class BoardMemberRepository : IBoardMemberRepository
 
     public async Task UpdateRoleAsync(Guid boardId, Guid userId, BoardRole newRole, IDbTransaction tx)
     {
-        Verify.That(boardId).IsNotDefault();
-        Verify.That(userId).IsNotDefault();
-        Verify.That(tx).IsNotNull();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }.ValidateAndThrow(boardId);
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("userId") }.ValidateAndThrow(userId);
+        ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """
             UPDATE board_members SET role = @role
@@ -103,7 +104,7 @@ public sealed class BoardMemberRepository : IBoardMemberRepository
 
     public async Task<IReadOnlyList<BoardMember>> FindAllForBoardAsync(Guid boardId, IDbTransaction? tx = null)
     {
-        Verify.That(boardId).IsNotDefault();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }.ValidateAndThrow(boardId);
 
         const string sql = """
             SELECT id, board_id AS BoardId, user_id AS UserId, role AS Role,

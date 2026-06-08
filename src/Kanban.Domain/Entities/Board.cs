@@ -1,3 +1,5 @@
+using FluentValidation;
+
 namespace Kanban.Domain.Entities;
 
 public sealed class Board
@@ -9,9 +11,9 @@ public sealed class Board
 
     public Board(Guid id, string name, Guid createdByUserId, DateTimeOffset createdAt)
     {
-        Verify.That(id).IsNotDefault();
-        Verify.That(name).IsNotNull().IsNotEmpty().HasMaxLength(200);
-        Verify.That(createdByUserId).IsNotDefault();
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("id") }.ValidateAndThrow(id);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().MaximumLength(200).WithName("name") }.ValidateAndThrow(name);
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("createdByUserId") }.ValidateAndThrow(createdByUserId);
         Id = id;
         Name = name;
         CreatedByUserId = createdByUserId;
@@ -20,7 +22,7 @@ public sealed class Board
 
     public void Rename(string name)
     {
-        Verify.That(name).IsNotNull().IsNotEmpty().HasMaxLength(200);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().MaximumLength(200).WithName("name") }.ValidateAndThrow(name);
         Name = name;
     }
 }
