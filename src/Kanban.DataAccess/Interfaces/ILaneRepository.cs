@@ -13,4 +13,5 @@ public interface ILaneRepository
     Task ShiftPositionsAsync(Guid boardId, int fromPosition, int toPosition, int delta, IDbTransaction tx);
     Task DeleteAsync(Guid laneId, IDbTransaction tx);
     Task<int> CountInBoardAsync(Guid boardId, IDbTransaction? tx = null);
+    Task<bool> ExistsWithNameInBoardAsync(Guid boardId, string name, IDbTransaction? tx = null);
 }

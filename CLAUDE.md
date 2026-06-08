@@ -5,7 +5,9 @@ shell commands, and other important information, read the current plan:
 <!-- SPECKIT END -->
 
 # Kanban — Agent & Developer Guidance
-
+## Code Search
+Always use the `search_code` MCP tool before implementing any feature or modifying 
+existing code. Do not rely solely on file browsing.
 ## Essential reading before you start
 - Constitution (governing principles, solution structure, layer rules): @.specify/memory/constitution.md
 - Current feature spec: `specs/<branch>/spec.md` (if one exists)

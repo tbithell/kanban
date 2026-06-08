@@ -139,4 +139,15 @@ public sealed class LaneRepository : ILaneRepository
         return await _connection.QuerySingleAsync<int>(
             sql, new { boardId = boardId.ToString("D") }, transaction: tx);
     }
+
+    public async Task<bool> ExistsWithNameInBoardAsync(Guid boardId, string name, IDbTransaction? tx = null)
+    {
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }.ValidateAndThrow(boardId);
+        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("name") }.ValidateAndThrow(name);
+
+        const string sql = "SELECT COUNT(*) FROM lanes WHERE board_id = @boardId AND name = @name COLLATE NOCASE";
+        var count = await _connection.QuerySingleAsync<int>(
+            sql, new { boardId = boardId.ToString("D"), name }, transaction: tx);
+        return count > 0;
+    }
 }

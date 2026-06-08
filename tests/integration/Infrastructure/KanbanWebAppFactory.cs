@@ -179,6 +179,108 @@ public sealed class KanbanWebAppFactory : WebApplicationFactory<Program>
         return client;
     }
 
+    public async Task<Guid> InsertStandardUserAsync(string email)
+    {
+        _ = Server;
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<IDbConnection>();
+        var userId = Guid.NewGuid();
+        await db.ExecuteAsync(
+            """
+            INSERT INTO users (id, email, display_name, system_role, google_sub, registered_at)
+            VALUES (@id, @email, @displayName, 'Standard', @googleSub, @registeredAt)
+            """,
+            new
+            {
+                id = userId.ToString("D"),
+                email,
+                displayName = email,
+                googleSub = $"google-sub-{userId:N}",
+                registeredAt = DateTimeOffset.UtcNow.ToString("o"),
+            });
+        return userId;
+    }
+
+    public async Task<Guid> InsertBoardAsync(string name, Guid ownerUserId)
+    {
+        _ = Server;
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<IDbConnection>();
+        var boardId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        await db.ExecuteAsync(
+            """
+            INSERT INTO boards (id, name, created_by_user_id, created_at)
+            VALUES (@id, @name, @createdByUserId, @createdAt)
+            """,
+            new
+            {
+                id = boardId.ToString("D"),
+                name,
+                createdByUserId = ownerUserId.ToString("D"),
+                createdAt = now.ToString("o"),
+            });
+        var memberId = Guid.NewGuid();
+        await db.ExecuteAsync(
+            """
+            INSERT INTO board_members (id, board_id, user_id, role, invited_by_user_id, joined_at)
+            VALUES (@id, @boardId, @userId, 'Owner', NULL, @joinedAt)
+            """,
+            new
+            {
+                id = memberId.ToString("D"),
+                boardId = boardId.ToString("D"),
+                userId = ownerUserId.ToString("D"),
+                joinedAt = now.ToString("o"),
+            });
+        return boardId;
+    }
+
+    public async Task InsertBoardMemberAsync(Guid boardId, Guid userId, string role)
+    {
+        _ = Server;
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<IDbConnection>();
+        var memberId = Guid.NewGuid();
+        var adminId = await GetSeededAdminIdAsync();
+        await db.ExecuteAsync(
+            """
+            INSERT INTO board_members (id, board_id, user_id, role, invited_by_user_id, joined_at)
+            VALUES (@id, @boardId, @userId, @role, @invitedBy, @joinedAt)
+            """,
+            new
+            {
+                id = memberId.ToString("D"),
+                boardId = boardId.ToString("D"),
+                userId = userId.ToString("D"),
+                role,
+                invitedBy = adminId.ToString("D"),
+                joinedAt = DateTimeOffset.UtcNow.ToString("o"),
+            });
+    }
+
+    public async Task<Guid> InsertLaneAsync(Guid boardId, string name, int position)
+    {
+        _ = Server;
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<IDbConnection>();
+        var laneId = Guid.NewGuid();
+        await db.ExecuteAsync(
+            """
+            INSERT INTO lanes (id, board_id, name, position, version, created_at)
+            VALUES (@id, @boardId, @name, @position, 1, @createdAt)
+            """,
+            new
+            {
+                id = laneId.ToString("D"),
+                boardId = boardId.ToString("D"),
+                name,
+                position,
+                createdAt = DateTimeOffset.UtcNow.ToString("o"),
+            });
+        return laneId;
+    }
+
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
