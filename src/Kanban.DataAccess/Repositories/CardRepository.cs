@@ -121,24 +121,53 @@ public sealed class CardRepository : ICardRepository
         }, transaction: tx);
     }
 
+    public async Task ParkCardAsync(Guid cardId, IDbTransaction tx)
+    {
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("cardId") }.ValidateAndThrow(cardId);
+        ArgumentNullException.ThrowIfNull(tx);
+
+        const string sql = "UPDATE cards SET position = 0 WHERE id = @cardId";
+        await _connection.ExecuteAsync(sql, new { cardId = cardId.ToString("D") }, transaction: tx);
+    }
+
     public async Task ShiftPositionsInLaneAsync(Guid laneId, int fromPosition, int toPosition, int delta, IDbTransaction tx)
     {
         new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("laneId") }.ValidateAndThrow(laneId);
         ArgumentNullException.ThrowIfNull(tx);
 
-        const string sql = """
+        // Two-phase approach to avoid SQLite UNIQUE constraint violations on (lane_id, position).
+        // Phase 1: park affected rows at their negated positions (negative values are always free
+        //          because the domain only ever inserts positive positions >= 1).
+        // Phase 2: finalize from negative to target value using -position + delta.
+        const string parkSql = """
             UPDATE cards
-            SET position = position + @delta
+            SET position = -position
             WHERE lane_id = @laneId
               AND position >= @fromPosition
               AND position <= @toPosition
             """;
 
-        await _connection.ExecuteAsync(sql, new
+        const string finalizeSql = """
+            UPDATE cards
+            SET position = -position + @delta
+            WHERE lane_id = @laneId
+              AND position >= @negToPosition
+              AND position <= @negFromPosition
+            """;
+
+        var laneIdStr = laneId.ToString("D");
+        await _connection.ExecuteAsync(parkSql, new
         {
-            laneId = laneId.ToString("D"),
+            laneId = laneIdStr,
             fromPosition,
             toPosition,
+        }, transaction: tx);
+
+        await _connection.ExecuteAsync(finalizeSql, new
+        {
+            laneId = laneIdStr,
+            negToPosition = -toPosition,
+            negFromPosition = -fromPosition,
             delta,
         }, transaction: tx);
     }

@@ -320,6 +320,9 @@ public sealed class CardServiceTests
             return Task.FromResult(_updatePositionRows);
         }
 
+        public Task ParkCardAsync(Guid cardId, IDbTransaction tx)
+            => Task.CompletedTask;
+
         public Task ShiftPositionsInLaneAsync(Guid laneId, int fromPosition, int toPosition, int delta, IDbTransaction tx)
         {
             ShiftedLaneId = laneId;

@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import sys,json; d=json.load(sys.stdin); c=d.get('tool_input',{}).get('command','').strip(); words=[w for w in c.split() if '=' not in w]; first=words[0] if words else ''; first in ['find','grep','cat','head','tail','rg'] and print(json.dumps({'hookSpecificOutput':{'hookEventName':'PreToolUse','additionalContext':'REMINDER: Use mcp__claude-context__search_code for code search. Use the Read tool for known file paths. Do NOT use find/grep/cat/head/tail for exploration.'}}))\"",
+            "statusMessage": "Checking for search anti-patterns..."
+          }
+        ]
+      }
+    ]
+  }
+}

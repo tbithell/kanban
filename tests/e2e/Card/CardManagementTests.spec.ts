@@ -17,7 +17,7 @@ test.describe('US2: Board member adds and manages cards', () => {
     expect(laneResp.ok()).toBeTruthy()
 
     await page.goto(`${WEB_BASE}/boards/${board.id}`)
-    await expect(page.getByRole('heading', { name: boardName })).toBeVisible()
+    await expect(page.getByRole('heading', { name: boardName })).toBeVisible({ timeout: 10_000 })
 
     await page.getByRole('button', { name: /add card/i }).first().click()
     await page.getByRole('textbox', { name: /card title/i }).fill('My First Card')
@@ -74,6 +74,10 @@ test.describe('US2: Board member adds and manages cards', () => {
     await page.getByRole('button', { name: /edit card/i }).first().click()
     await page.getByRole('checkbox', { name: /clear due date/i }).check()
     await page.getByRole('button', { name: /save/i }).click()
+    // not.toBeAttached waits for the Fluent UI dialog portal to be fully removed
+    // from the DOM (not just hidden), at which point its backdrop no longer blocks
+    // pointer events on the cards behind it.
+    await expect(page.getByRole('dialog')).not.toBeAttached({ timeout: 10_000 })
 
     await page.getByRole('button', { name: /edit card/i }).first().click()
     const dueDateField = page.getByRole('textbox', { name: /due date/i })
@@ -104,8 +108,9 @@ test.describe('US2: Board member adds and manages cards', () => {
 
     await page.getByRole('button', { name: /delete card/i }).first().click()
     await page.getByRole('button', { name: /confirm/i }).click()
+    await expect(page.getByRole('dialog')).not.toBeAttached({ timeout: 10_000 })
 
-    await expect(page.getByText('Card Alpha')).not.toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('Card Alpha')).not.toBeVisible()
     await expect(page.getByText('Card Beta')).toBeVisible()
     await expect(page.getByText('Card Gamma')).toBeVisible()
 
@@ -161,7 +166,7 @@ test.describe('US2: Board member adds and manages cards', () => {
     await request.post(`${API_BASE}/api/v1/boards/${board.id}/lanes`, { data: { name: 'Lane' } })
 
     await page.goto(`${WEB_BASE}/boards/${board.id}`)
-    await expect(page.getByRole('heading', { name: board.name })).toBeVisible()
+    await expect(page.getByRole('heading', { name: board.name })).toBeVisible({ timeout: 10_000 })
 
     await page.getByRole('button', { name: /add card/i }).first().click()
     await page.getByRole('textbox', { name: /card title/i }).fill('')

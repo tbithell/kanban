@@ -24,6 +24,8 @@ public sealed class BoardServiceTests
     private BoardService CreateSut(
         IBoardRepository? boardRepo = null,
         IBoardMemberRepository? boardMemberRepo = null,
+        ILaneRepository? laneRepo = null,
+        ICardRepository? cardRepo = null,
         ICurrentUserServiceFake? currentUser = null,
         IAuthorizationService? authService = null)
     {
@@ -32,6 +34,8 @@ public sealed class BoardServiceTests
         return new BoardService(
             boardRepo ?? new FakeBoardRepository(),
             boardMemberRepo ?? new FakeBoardMemberRepository(),
+            laneRepo ?? new FakeLaneRepository(),
+            cardRepo ?? new FakeCardRepository(),
             currentUser ?? new FakeCurrentUserService(_adminUserId, "admin"),
             authService ?? BuildSucceedingAuthService(),
             connection,
@@ -272,6 +276,61 @@ public sealed class BoardServiceTests
         public Guid? UserId { get; }
         public string? SystemRole { get; }
         public System.Security.Claims.ClaimsPrincipal Principal { get; } = new();
+    }
+
+    private sealed class FakeLaneRepository : ILaneRepository
+    {
+        public Task<IReadOnlyList<Lane>> FindByBoardAsync(Guid boardId, IDbTransaction? tx = null)
+            => Task.FromResult<IReadOnlyList<Lane>>([]);
+
+        public Task<Lane?> FindByIdAsync(Guid laneId, IDbTransaction? tx = null)
+            => Task.FromResult<Lane?>(null);
+
+        public Task InsertAsync(Lane lane, IDbTransaction tx) => Task.CompletedTask;
+
+        public Task UpdateNameAsync(Guid laneId, string name, IDbTransaction tx) => Task.CompletedTask;
+
+        public Task<int> UpdatePositionAsync(Guid laneId, int newPosition, int expectedVersion, IDbTransaction tx)
+            => Task.FromResult(1);
+
+        public Task SetPositionAsync(Guid laneId, int position, IDbTransaction tx) => Task.CompletedTask;
+
+        public Task ShiftPositionsAsync(Guid boardId, int fromPosition, int toPosition, int delta, IDbTransaction tx)
+            => Task.CompletedTask;
+
+        public Task DeleteAsync(Guid laneId, IDbTransaction tx) => Task.CompletedTask;
+
+        public Task<int> CountInBoardAsync(Guid boardId, IDbTransaction? tx = null)
+            => Task.FromResult(0);
+
+        public Task<bool> ExistsWithNameInBoardAsync(Guid boardId, string name, IDbTransaction? tx = null)
+            => Task.FromResult(false);
+    }
+
+    private sealed class FakeCardRepository : ICardRepository
+    {
+        public Task<IReadOnlyList<Card>> FindByLaneAsync(Guid laneId, IDbTransaction? tx = null)
+            => Task.FromResult<IReadOnlyList<Card>>([]);
+
+        public Task<Card?> FindByIdAsync(Guid cardId, IDbTransaction? tx = null)
+            => Task.FromResult<Card?>(null);
+
+        public Task InsertAsync(Card card, IDbTransaction tx) => Task.CompletedTask;
+
+        public Task UpdateAsync(Card card, IDbTransaction tx) => Task.CompletedTask;
+
+        public Task<int> UpdatePositionAsync(Guid cardId, Guid laneId, int newPosition, int expectedVersion, IDbTransaction tx)
+            => Task.FromResult(1);
+
+        public Task ParkCardAsync(Guid cardId, IDbTransaction tx) => Task.CompletedTask;
+
+        public Task ShiftPositionsInLaneAsync(Guid laneId, int fromPosition, int toPosition, int delta, IDbTransaction tx)
+            => Task.CompletedTask;
+
+        public Task DeleteAsync(Guid cardId, IDbTransaction tx) => Task.CompletedTask;
+
+        public Task<int> CountInLaneAsync(Guid laneId, IDbTransaction? tx = null)
+            => Task.FromResult(0);
     }
 
     private sealed class FakeDbConnectionFactory : IDbConnectionFactory

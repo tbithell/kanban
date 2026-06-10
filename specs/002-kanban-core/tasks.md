@@ -161,14 +161,14 @@ confirms gapless positions on remaining cards. Viewer create/update/delete attem
 
 ### Implementation for US2
 
-- [ ] T052 [US2] Implement `CardService` (create appended at N+1, update with `ClearDueDate` handling, delete with position shift, move same-lane and cross-lane both inside deferred transaction + Polly; version check on move → 409; enforce Owner/Member role; Verify.That on all public params) in `src/Kanban.Business/Services/CardService.cs`; register in `Program.cs`
-- [ ] T053 [US2] Implement `CardEndpoints` (`POST /boards/{boardId}/lanes/{laneId}/cards`, `PATCH /boards/{boardId}/cards/{cardId}`, `DELETE /boards/{boardId}/cards/{cardId}`, `POST /boards/{boardId}/cards/{cardId}/move`) in `src/Kanban.Api/Endpoints/CardEndpoints.cs`; register in `Program.cs`
-- [ ] T054 [P] [US2] Implement `useCreateCard`, `useUpdateCard`, `useDeleteCard` mutation hooks with `onSettled` cache invalidation in `src/Kanban.Web/src/hooks/useCreateCard.ts`, `useUpdateCard.ts`, `useDeleteCard.ts`
-- [ ] T055 [P] [US2] Implement `CardItem` component (displays title, due-date chip, description indicator; opens `CardDetailDialog` on click; delete button for Owner/Member) in `src/Kanban.Web/src/components/board/CardItem.tsx`
-- [ ] T056 [P] [US2] Implement `AddCardForm` (inline form: title input, submit, cancel; appended at bottom of lane) in `src/Kanban.Web/src/components/board/AddCardForm.tsx`
-- [ ] T057 [US2] Implement `CardDetailDialog` (Fluent UI Dialog: edit title, description textarea, date picker, clear-due-date checkbox, save/delete/cancel) in `src/Kanban.Web/src/components/board/CardDetailDialog.tsx`; use `useUpdateCard` and `useDeleteCard`
-- [ ] T058 [US2] Update `Lane` component to render `CardItem` list and `AddCardForm` below the lane header in `src/Kanban.Web/src/components/board/Lane.tsx`
-- [ ] T059 [US2] Update `BoardPage` to pass card data from `useBoard` into each `Lane`; wire `onCardCreated`/`onCardUpdated`/`onCardDeleted` callbacks in `src/Kanban.Web/src/pages/BoardPage.tsx`
+- [X] T052 [US2] Implement `CardService` (create appended at N+1, update with `ClearDueDate` handling, delete with position shift, move same-lane and cross-lane both inside deferred transaction + Polly; version check on move → 409; enforce Owner/Member role; Verify.That on all public params) in `src/Kanban.Business/Services/CardService.cs`; register in `Program.cs`
+- [X] T053 [US2] Implement `CardEndpoints` (`POST /boards/{boardId}/lanes/{laneId}/cards`, `PATCH /boards/{boardId}/cards/{cardId}`, `DELETE /boards/{boardId}/cards/{cardId}`, `POST /boards/{boardId}/cards/{cardId}/move`) in `src/Kanban.Api/Endpoints/CardEndpoints.cs`; register in `Program.cs`
+- [X] T054 [P] [US2] Implement `useCreateCard`, `useUpdateCard`, `useDeleteCard` mutation hooks with `onSettled` cache invalidation in `src/Kanban.Web/src/hooks/useCreateCard.ts`, `useUpdateCard.ts`, `useDeleteCard.ts`
+- [X] T055 [P] [US2] Implement `CardItem` component (displays title, due-date chip, description indicator; opens `CardDetailDialog` on click; delete button for Owner/Member) in `src/Kanban.Web/src/components/board/CardItem.tsx`
+- [X] T056 [P] [US2] Implement `AddCardForm` (inline form: title input, submit, cancel; appended at bottom of lane) in `src/Kanban.Web/src/components/board/AddCardForm.tsx`
+- [X] T057 [US2] Implement `CardDetailDialog` (Fluent UI Dialog: edit title, description textarea, date picker, clear-due-date checkbox, save/delete/cancel) in `src/Kanban.Web/src/components/board/CardDetailDialog.tsx`; use `useUpdateCard` and `useDeleteCard`
+- [X] T058 [US2] Update `Lane` component to render `CardItem` list and `AddCardForm` below the lane header in `src/Kanban.Web/src/components/board/Lane.tsx`
+- [X] T059 [US2] Update `BoardPage` to pass card data from `useBoard` into each `Lane`; wire `onCardCreated`/`onCardUpdated`/`onCardDeleted` callbacks in `src/Kanban.Web/src/pages/BoardPage.tsx`
 
 **Checkpoint**: Member can add, edit, and delete cards via UI; all US2 unit, integration, and e2e tests green.
 
