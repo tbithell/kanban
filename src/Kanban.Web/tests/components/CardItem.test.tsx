@@ -2,6 +2,28 @@ import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import CardItem from '../../src/components/board/CardItem'
 
+// dnd-kit adds role="button" and tabindex to sortable elements; mock it so
+// CardItem's semantic <article> role is preserved in these unit tests.
+// Playwright e2e tests own the actual drag interaction.
+vi.mock('@dnd-kit/sortable', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@dnd-kit/sortable')>()
+  return {
+    ...actual,
+    useSortable: vi.fn(() => ({
+      attributes: {},
+      listeners: {},
+      setNodeRef: vi.fn(),
+      transform: null,
+      transition: null,
+      isDragging: false,
+    })),
+  }
+})
+
+vi.mock('@dnd-kit/utilities', () => ({
+  CSS: { Transform: { toString: vi.fn(() => '') } },
+}))
+
 type BoardRole = 'Owner' | 'Member' | 'Viewer'
 
 interface Card {
@@ -15,8 +37,15 @@ interface Card {
   version: number
 }
 
-function renderCardItem(card: Card, callerRole: BoardRole = 'Owner', onEdit = vi.fn()) {
-  return render(<CardItem card={card} callerRole={callerRole} onEdit={onEdit} />)
+function renderCardItem(
+  card: Card,
+  callerRole: BoardRole = 'Owner',
+  onEdit = vi.fn(),
+  onDelete = vi.fn()
+) {
+  return render(
+    <CardItem card={card} callerRole={callerRole} onEdit={onEdit} onDelete={onDelete} />
+  )
 }
 
 const baseCard: Card = {
@@ -74,7 +103,7 @@ describe('CardItem', () => {
     expect(editBtn).not.toHaveAttribute('tabindex', '-1')
   })
 
-  it('card container is reachable as a list item', () => {
+  it('card container is reachable as an article landmark', () => {
     renderCardItem(baseCard)
     expect(screen.getByRole('article')).toBeInTheDocument()
   })
