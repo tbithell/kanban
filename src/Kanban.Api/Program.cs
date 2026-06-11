@@ -126,6 +126,7 @@ builder.Services.AddScoped<IAuthorizationHandler, RegisteredUserHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, BoardAuthorizationHandler>();
 builder.Services.AddScoped<IBoardService, BoardService>();
 builder.Services.AddScoped<ILaneService, LaneService>();
+builder.Services.AddScoped<ICardService, CardService>();
 
 builder.Services.AddAuthentication(options =>
     {
@@ -237,18 +238,30 @@ builder.Services.AddRateLimiter(opts =>
                 Window = TimeSpan.FromMinutes(1),
             }));
 
-    opts.AddSlidingWindowLimiter("authenticated", o =>
+    opts.AddPolicy("authenticated", httpContext =>
     {
-        o.PermitLimit = 100;
-        o.Window = TimeSpan.FromMinutes(1);
-        o.SegmentsPerWindow = 6;
+        var userId = httpContext.User.FindFirst("sub")?.Value
+            ?? httpContext.Connection.RemoteIpAddress?.ToString()
+            ?? "anonymous";
+        return RateLimitPartition.GetSlidingWindowLimiter(userId, _ => new SlidingWindowRateLimiterOptions
+        {
+            PermitLimit = 100,
+            Window = TimeSpan.FromMinutes(1),
+            SegmentsPerWindow = 6,
+        });
     });
 
-    opts.AddSlidingWindowLimiter("mutating", o =>
+    opts.AddPolicy("mutating", httpContext =>
     {
-        o.PermitLimit = 30;
-        o.Window = TimeSpan.FromMinutes(1);
-        o.SegmentsPerWindow = 6;
+        var userId = httpContext.User.FindFirst("sub")?.Value
+            ?? httpContext.Connection.RemoteIpAddress?.ToString()
+            ?? "anonymous";
+        return RateLimitPartition.GetSlidingWindowLimiter(userId, _ => new SlidingWindowRateLimiterOptions
+        {
+            PermitLimit = 30,
+            Window = TimeSpan.FromMinutes(1),
+            SegmentsPerWindow = 6,
+        });
     });
 });
 
@@ -335,9 +348,9 @@ app.UseStatusCodePages();
 
 app.UseRouting();
 app.UseCors("KanbanWebApp");
-app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 // ── Health endpoints — public, excluded from auth group ───────────────────────
 
@@ -372,6 +385,7 @@ AuthEndpoints.Map(v1RegisteredUserGroup);
 InviteEndpoints.Map(v1RegisteredUserGroup);
 BoardEndpoints.Map(v1RegisteredUserGroup);
 LaneEndpoints.Map(v1RegisteredUserGroup);
+CardEndpoints.Map(v1RegisteredUserGroup);
 
 var v1GoogleAuthGroup = v1.MapGroup("/api/v1")
     .HasApiVersion(1, 0)

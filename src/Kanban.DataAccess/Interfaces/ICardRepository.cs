@@ -10,6 +10,7 @@ public interface ICardRepository
     Task InsertAsync(Card card, IDbTransaction tx);
     Task UpdateAsync(Card card, IDbTransaction tx);
     Task<int> UpdatePositionAsync(Guid cardId, Guid laneId, int newPosition, int expectedVersion, IDbTransaction tx);
+    Task ParkCardAsync(Guid cardId, IDbTransaction tx);
     Task ShiftPositionsInLaneAsync(Guid laneId, int fromPosition, int toPosition, int delta, IDbTransaction tx);
     Task DeleteAsync(Guid cardId, IDbTransaction tx);
     Task<int> CountInLaneAsync(Guid laneId, IDbTransaction? tx = null);

@@ -25,6 +25,8 @@ public static class DapperConfiguration
             SqlMapper.AddTypeHandler(new AuthEventTypeHandler());
             SqlMapper.AddTypeHandler(new BoardRoleHandler());
             SqlMapper.AddTypeHandler(new NullableBoardRoleHandler());
+            SqlMapper.AddTypeHandler(new DateOnlyHandler());
+            SqlMapper.AddTypeHandler(new NullableDateOnlyHandler());
             _registered = true;
         }
     }
@@ -105,5 +107,27 @@ public static class DapperConfiguration
 
         public override void SetValue(IDbDataParameter parameter, BoardRole? value)
             => parameter.Value = value.HasValue ? value.Value.ToString() : (object)DBNull.Value;
+    }
+
+    private sealed class DateOnlyHandler : SqlMapper.TypeHandler<DateOnly>
+    {
+        public override DateOnly Parse(object value)
+            => DateOnly.Parse((string)value, CultureInfo.InvariantCulture);
+
+        public override void SetValue(IDbDataParameter parameter, DateOnly value)
+            => parameter.Value = value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    }
+
+    private sealed class NullableDateOnlyHandler : SqlMapper.TypeHandler<DateOnly?>
+    {
+        public override DateOnly? Parse(object value)
+            => value is null or DBNull
+                ? null
+                : DateOnly.Parse((string)value, CultureInfo.InvariantCulture);
+
+        public override void SetValue(IDbDataParameter parameter, DateOnly? value)
+            => parameter.Value = value.HasValue
+                ? value.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+                : (object)DBNull.Value;
     }
 }

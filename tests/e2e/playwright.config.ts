@@ -45,7 +45,6 @@ export default defineConfig({
     },
     {
       name: 'chromium',
-      testDir: './Auth',
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],
     },

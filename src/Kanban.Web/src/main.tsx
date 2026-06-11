@@ -11,7 +11,8 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 30_000,
       retry: (failureCount, error) => {
-        if (error instanceof Response && error.status >= 400 && error.status < 500) return false
+        const status = (error as { status?: number }).status
+        if (status !== undefined && status >= 400 && status < 500) return false
         return failureCount < 2
       },
     },

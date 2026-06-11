@@ -281,6 +281,45 @@ public sealed class KanbanWebAppFactory : WebApplicationFactory<Program>
         return laneId;
     }
 
+    public async Task<Guid> InsertCardAsync(Guid laneId, Guid boardId, string title, int position,
+        string? description = null, DateOnly? dueDate = null)
+    {
+        _ = Server;
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<IDbConnection>();
+        var cardId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        await db.ExecuteAsync(
+            """
+            INSERT INTO cards (id, lane_id, board_id, title, description, due_date, position, version, created_at, updated_at)
+            VALUES (@id, @laneId, @boardId, @title, @description, @dueDate, @position, 1, @createdAt, @updatedAt)
+            """,
+            new
+            {
+                id = cardId.ToString("D"),
+                laneId = laneId.ToString("D"),
+                boardId = boardId.ToString("D"),
+                title,
+                description,
+                dueDate = dueDate?.ToString("yyyy-MM-dd"),
+                position,
+                createdAt = now.ToString("o"),
+                updatedAt = now.ToString("o"),
+            });
+        return cardId;
+    }
+
+    public async Task<List<int>> GetCardPositionsInLaneAsync(Guid laneId)
+    {
+        _ = Server;
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<IDbConnection>();
+        var positions = await db.QueryAsync<int>(
+            "SELECT position FROM cards WHERE lane_id = @laneId ORDER BY position",
+            new { laneId = laneId.ToString("D") });
+        return positions.ToList();
+    }
+
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);

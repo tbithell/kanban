@@ -105,6 +105,61 @@ internal static class DevEndpoints
             .WithSummary("[DEV ONLY] Seed an invitation record for Playwright testing")
             .AllowAnonymous();
 
+        routes.MapPost("/dev/seed-board-member",
+            async (
+                DevSeedBoardMemberRequest request,
+                IDbConnection db) =>
+            {
+                var validRoles = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Owner", "Member", "Viewer" };
+                if (!validRoles.Contains(request.Role))
+                    return Results.BadRequest($"Invalid role '{request.Role}'. Must be Owner, Member, or Viewer.");
+
+                var now = DateTimeOffset.UtcNow;
+                await db.ExecuteAsync(
+                    """
+                    INSERT OR IGNORE INTO users (id, google_sub, email, display_name, system_role, registered_at)
+                    VALUES (@id, @sub, @email, @displayName, 'Standard', @createdAt)
+                    """,
+                    new
+                    {
+                        id = Guid.NewGuid().ToString("D"),
+                        sub = $"dev-sub-{request.Email}",
+                        email = request.Email,
+                        displayName = request.Email,
+                        createdAt = now.ToString("o"),
+                    });
+
+                var userId = await db.QuerySingleAsync<string>(
+                    "SELECT id FROM users WHERE email = @email",
+                    new { email = request.Email });
+
+                var adminId = await db.QuerySingleOrDefaultAsync<string>(
+                    "SELECT id FROM users WHERE system_role = 'Admin' LIMIT 1");
+                if (adminId is null)
+                    return Results.NotFound("No admin user found in database");
+
+                var memberId = Guid.NewGuid();
+                await db.ExecuteAsync(
+                    """
+                    INSERT OR IGNORE INTO board_members (id, board_id, user_id, role, invited_by_user_id, joined_at)
+                    VALUES (@id, @boardId, @userId, @role, @invitedBy, @joinedAt)
+                    """,
+                    new
+                    {
+                        id = memberId.ToString("D"),
+                        boardId = request.BoardId.ToString("D"),
+                        userId = userId,
+                        role = request.Role,
+                        invitedBy = adminId,
+                        joinedAt = now.ToString("o"),
+                    });
+
+                return Results.Ok(new { userId = Guid.Parse(userId) });
+            })
+            .WithName("DevSeedBoardMember")
+            .WithSummary("[DEV ONLY] Seed a user and board membership — Playwright use only")
+            .AllowAnonymous();
+
         routes.MapGet("/dev/test/throw-validation", () =>
             {
                 var failures = new[] { new ValidationFailure("TestField", "Must not be empty") };
@@ -133,3 +188,8 @@ internal sealed record DevSeedInvitationRequest(
     string Email,
     double? ExpiresInDays = null,
     bool Consumed = false);
+
+internal sealed record DevSeedBoardMemberRequest(
+    string Email,
+    Guid BoardId,
+    string Role);

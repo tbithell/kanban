@@ -18,6 +18,8 @@ public sealed class BoardService : IBoardService
 {
     private readonly IBoardRepository _boardRepository;
     private readonly IBoardMemberRepository _boardMemberRepository;
+    private readonly ILaneRepository _laneRepository;
+    private readonly ICardRepository _cardRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuthorizationService _authorizationService;
     private readonly IDbConnection _dbConnection;
@@ -41,6 +43,8 @@ public sealed class BoardService : IBoardService
     public BoardService(
         IBoardRepository boardRepository,
         IBoardMemberRepository boardMemberRepository,
+        ILaneRepository laneRepository,
+        ICardRepository cardRepository,
         ICurrentUserService currentUserService,
         IAuthorizationService authorizationService,
         IDbConnection dbConnection,
@@ -49,6 +53,8 @@ public sealed class BoardService : IBoardService
     {
         ArgumentNullException.ThrowIfNull(boardRepository);
         ArgumentNullException.ThrowIfNull(boardMemberRepository);
+        ArgumentNullException.ThrowIfNull(laneRepository);
+        ArgumentNullException.ThrowIfNull(cardRepository);
         ArgumentNullException.ThrowIfNull(currentUserService);
         ArgumentNullException.ThrowIfNull(authorizationService);
         ArgumentNullException.ThrowIfNull(dbConnection);
@@ -56,6 +62,8 @@ public sealed class BoardService : IBoardService
         ArgumentNullException.ThrowIfNull(logger);
         _boardRepository = boardRepository;
         _boardMemberRepository = boardMemberRepository;
+        _laneRepository = laneRepository;
+        _cardRepository = cardRepository;
         _currentUserService = currentUserService;
         _authorizationService = authorizationService;
         _dbConnection = dbConnection;
@@ -131,7 +139,15 @@ public sealed class BoardService : IBoardService
         var role = await _boardMemberRepository.FindRoleAsync(boardId, userId)
             ?? BoardRole.Viewer;
 
-        return BoardTransforms.ToDetailDto(board, role, []);
+        var lanes = await _laneRepository.FindByBoardAsync(boardId);
+        var laneDtos = new List<LaneDto>(lanes.Count);
+        foreach (var lane in lanes)
+        {
+            var cards = await _cardRepository.FindByLaneAsync(lane.Id);
+            laneDtos.Add(LaneTransforms.ToDto(lane, cards.Select(CardTransforms.ToDto).ToList()));
+        }
+
+        return BoardTransforms.ToDetailDto(board, role, laneDtos);
     }
 
     public async Task DeleteAsync(Guid boardId)

@@ -1,6 +1,10 @@
+import { useState } from 'react'
 import { Button, Title2, makeStyles, tokens } from '@fluentui/react-components'
-import type { Lane as LaneData } from '../../hooks/useBoard'
+import type { Card, Lane as LaneData } from '../../hooks/useBoard'
 import type { BoardRole } from '../../hooks/useBoards'
+import CardItem from './CardItem'
+import AddCardForm from './AddCardForm'
+import CardDetailDialog from './CardDetailDialog'
 
 const useStyles = makeStyles({
   lane: {
@@ -19,7 +23,6 @@ const useStyles = makeStyles({
     alignItems: 'center',
   },
   cards: {
-    minHeight: '40px',
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacingVerticalXS,
@@ -40,6 +43,22 @@ interface LaneProps {
 export default function Lane({ lane, callerRole, onDelete }: LaneProps) {
   const styles = useStyles()
   const canModify = callerRole === 'Owner' || callerRole === 'Member'
+  const [editingCard, setEditingCard] = useState<Card | null>(null)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [deletingCard, setDeletingCard] = useState<Card | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+
+  const sortedCards = [...lane.cards].sort((a, b) => a.position - b.position)
+
+  const openEdit = (card: Card) => {
+    setEditingCard(card)
+    setEditDialogOpen(true)
+  }
+
+  const openDelete = (card: Card) => {
+    setDeletingCard(card)
+    setDeleteDialogOpen(true)
+  }
 
   return (
     <section className={styles.lane} aria-label={`Lane: ${lane.name}`}>
@@ -57,8 +76,37 @@ export default function Lane({ lane, callerRole, onDelete }: LaneProps) {
         )}
       </div>
       <div className={styles.cards}>
-        {lane.cards.length === 0 && <div className={styles.emptySlot} aria-hidden="true" />}
+        {sortedCards.length === 0 && !canModify && (
+          <div className={styles.emptySlot} aria-hidden="true" />
+        )}
+        {sortedCards.map((card) => (
+          <CardItem
+            key={card.id}
+            card={card}
+            callerRole={callerRole}
+            onEdit={openEdit}
+            onDelete={openDelete}
+          />
+        ))}
       </div>
+      {canModify && <AddCardForm boardId={lane.boardId} laneId={lane.id} />}
+      {editingCard && (
+        <CardDetailDialog
+          key={editingCard.id}
+          card={editingCard}
+          open={editDialogOpen}
+          onClose={() => setEditDialogOpen(false)}
+        />
+      )}
+      {deletingCard && (
+        <CardDetailDialog
+          key={`delete-${deletingCard.id}`}
+          card={deletingCard}
+          open={deleteDialogOpen}
+          onClose={() => setDeleteDialogOpen(false)}
+          initialConfirmDelete={true}
+        />
+      )}
     </section>
   )
 }

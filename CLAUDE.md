@@ -1,12 +1,12 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-@specs/002-kanban-core/plan.md
-<!-- SPECKIT END -->
+@specs/002-kanban-core/plan.md<!-- SPECKIT END -->
 # Kanban — Agent & Developer Guidance
 ## Code Search
-Always use the `search_code` MCP tool before implementing any feature or modifying 
-existing code. Do not rely solely on file browsing.
+NEVER use Bash find/grep/cat for code exploration 
+ALWAYS use `mcp__claude-context__search_code` for any search or file discovery.
+`Read` is only for targeted edits where the exact path is already known.
 ## Essential reading before you start
 - Constitution (governing principles, solution structure, layer rules): @.specify/memory/constitution.md
 - Current feature spec: `specs/<branch>/spec.md` (if one exists)
