@@ -157,8 +157,12 @@ public sealed class BoardMembershipService : IBoardMembershipService
             boardId: boardId,
             boardRole: ToDomainRole(request.Role));
 
+        var sanitizedEmailForLog = (request.Email ?? string.Empty)
+            .Replace("\r", string.Empty)
+            .Replace("\n", string.Empty);
+
         _logger.LogInformation(
-            "Board invite issued for {Email} to board {BoardId} by {CallerId}", request.Email, boardId, callerId);
+            "Board invite issued for {Email} to board {BoardId} by {CallerId}", sanitizedEmailForLog, boardId, callerId);
     }
 
     public async Task<BoardMemberDto> ChangeRoleAsync(Guid boardId, Guid userId, ChangeMemberRoleRequest request)
