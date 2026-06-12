@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { useSortable } from '@dnd-kit/sortable'
 import CardItem from '../../src/components/board/CardItem'
 
 // dnd-kit adds role="button" and tabindex to sortable elements; mock it so
@@ -106,5 +107,49 @@ describe('CardItem', () => {
   it('card container is reachable as an article landmark', () => {
     renderCardItem(baseCard)
     expect(screen.getByRole('article')).toBeInTheDocument()
+  })
+
+  describe('drag ARIA attributes', () => {
+    const dragAttributes = {
+      'aria-roledescription': 'sortable',
+      'aria-describedby': 'dnd-described-by-0',
+    }
+
+    beforeEach(() => {
+      vi.mocked(useSortable).mockReturnValue({
+        attributes: dragAttributes,
+        listeners: { onPointerDown: vi.fn() },
+        setNodeRef: vi.fn(),
+        transform: null,
+        transition: null,
+        isDragging: false,
+        active: null,
+        activeIndex: -1,
+        over: null,
+        overIndex: -1,
+        index: 0,
+        isSorting: false,
+        newIndex: 0,
+        previousItem: undefined,
+        isOver: false,
+        rect: null,
+        node: { current: null },
+        id: 'card-1',
+        data: { current: undefined },
+        disabled: false,
+      })
+    })
+
+    it('Owner card receives drag ARIA attributes', () => {
+      renderCardItem(baseCard, 'Owner')
+      const container = document.querySelector('[aria-roledescription="sortable"]')
+      expect(container).toBeInTheDocument()
+    })
+
+    it('Viewer card does not receive drag ARIA attributes', () => {
+      renderCardItem(baseCard, 'Viewer')
+      const container = document.querySelector('[aria-roledescription="sortable"]')
+      expect(container).not.toBeInTheDocument()
+    })
   })
 })
