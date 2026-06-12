@@ -157,6 +157,9 @@ public sealed class AuthServiceTests
         public Task<User?> FindByIdAsync(Guid id, IDbTransaction? tx = null)
             => Task.FromResult(_byId);
 
+        public Task<IReadOnlyList<User>> FindByIdsAsync(IEnumerable<Guid> ids, IDbTransaction? tx = null)
+            => Task.FromResult<IReadOnlyList<User>>([]);
+
         public Task InsertAsync(User user, IDbTransaction tx)
             => Task.CompletedTask;
 
