@@ -28,14 +28,14 @@ interface BoardDetail {
 // Isolate BoardPage from DnD/KanbanBoard internals — KanbanBoard tests own those concerns.
 vi.mock('../../src/components/board/KanbanBoard', () => ({
   default: ({ board }: { board: BoardDetail }) => (
-    <div data-testid="kanban-board">
+    <section aria-label="Kanban board">
       {[...board.lanes]
         .sort((a, b) => a.position - b.position)
         .map((l) => (
           <h2 key={l.id}>{l.name}</h2>
         ))}
       <button>Add Lane</button>
-    </div>
+    </section>
   ),
 }))
 
@@ -95,7 +95,7 @@ describe('BoardPage', () => {
 
   it('delegates lane rendering to KanbanBoard', () => {
     renderPage()
-    expect(screen.getByTestId('kanban-board')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: /kanban board/i })).toBeInTheDocument()
     const laneHeadings = screen.getAllByRole('heading', { name: /To Do|In Progress|Done/i })
     expect(laneHeadings[0]).toHaveTextContent('To Do')
     expect(laneHeadings[1]).toHaveTextContent('In Progress')

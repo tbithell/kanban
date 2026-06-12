@@ -116,6 +116,10 @@ public sealed class CardService : ICardService
         new InlineValidator<Guid>
             { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("cardId") }
             .ValidateAndThrow(cardId);
+        new InlineValidator<UpdateCardRequest>
+        {
+            v => v.RuleFor(x => x.Title).MaximumLength(200)
+        }.ValidateAndThrow(request);
 
         var userId = _currentUserService.UserId!.Value;
         _ = await _boardRepository.FindBoardForMemberAsync(boardId, userId)
@@ -164,6 +168,12 @@ public sealed class CardService : ICardService
         new InlineValidator<Guid>
             { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("cardId") }
             .ValidateAndThrow(cardId);
+        new InlineValidator<MoveCardRequest>
+        {
+            v => v.RuleFor(x => x.TargetLaneId).NotEqual(Guid.Empty),
+            v => v.RuleFor(x => x.TargetPosition).GreaterThan(0),
+            v => v.RuleFor(x => x.ExpectedVersion).GreaterThan(0)
+        }.ValidateAndThrow(request);
 
         var userId = _currentUserService.UserId!.Value;
         _ = await _boardRepository.FindBoardForMemberAsync(boardId, userId)

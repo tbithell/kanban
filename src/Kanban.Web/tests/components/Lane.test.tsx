@@ -120,6 +120,12 @@ describe('Lane', () => {
     })
   })
 
+  it('drag handle button has aria-describedby — WCAG AA gate', () => {
+    renderLane(laneWithCards, 'Owner')
+    const dragHandle = screen.getByRole('button', { name: /drag to reorder lane/i })
+    expect(dragHandle).toHaveAttribute('aria-describedby', 'test-drag-instructions')
+  })
+
   it('renders Add Card form for Owner', () => {
     renderLane(laneWithCards, 'Owner')
     expect(screen.getByRole('button', { name: /add card/i })).toBeInTheDocument()

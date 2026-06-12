@@ -149,6 +149,11 @@ public sealed class LaneService : ILaneService
         new InlineValidator<Guid>
             { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("laneId") }
             .ValidateAndThrow(laneId);
+        new InlineValidator<MoveLaneRequest>
+        {
+            v => v.RuleFor(x => x.TargetPosition).GreaterThan(0),
+            v => v.RuleFor(x => x.ExpectedVersion).GreaterThan(0)
+        }.ValidateAndThrow(request);
 
         var userId = _currentUserService.UserId!.Value;
         _ = await _boardRepository.FindBoardForMemberAsync(boardId, userId)

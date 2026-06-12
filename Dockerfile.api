@@ -1,0 +1,25 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+COPY Kanban.sln ./
+COPY src/Kanban.Api/Kanban.Api.csproj              src/Kanban.Api/
+COPY src/Kanban.Business/Kanban.Business.csproj    src/Kanban.Business/
+COPY src/Kanban.Domain/Kanban.Domain.csproj        src/Kanban.Domain/
+COPY src/Kanban.Contracts/Kanban.Contracts.csproj  src/Kanban.Contracts/
+COPY src/Kanban.AntiCorruption/Kanban.AntiCorruption.csproj src/Kanban.AntiCorruption/
+COPY src/Kanban.DataAccess/Kanban.DataAccess.csproj src/Kanban.DataAccess/
+COPY src/Kanban.Data/Kanban.Data.csproj            src/Kanban.Data/
+
+RUN dotnet restore src/Kanban.Api/Kanban.Api.csproj
+
+COPY src/ src/
+
+RUN dotnet publish src/Kanban.Api/Kanban.Api.csproj \
+    -c Release -o /app/publish --no-restore
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+EXPOSE 8080
+ENV ASPNETCORE_URLS=http://+:8080
+ENTRYPOINT ["dotnet", "Kanban.Api.dll"]
