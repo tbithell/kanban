@@ -152,8 +152,13 @@ test.describe('US4 — Board owner invites and manages board members', () => {
       timeout: 10_000,
     })
 
-    // Members button should not be visible for non-owner
-    await expect(memberPage.getByRole('button', { name: /members/i })).not.toBeVisible()
+    // Member role can view the member list but not manage it
+    await memberPage.getByRole('button', { name: /members/i }).click()
+    await expect(memberPage.getByRole('list', { name: /board members/i })).toBeVisible({ timeout: 5_000 })
+
+    await expect(memberPage.getByRole('button', { name: /invite/i })).not.toBeVisible()
+    await expect(memberPage.getByRole('button', { name: /remove/i })).not.toBeVisible()
+    await expect(memberPage.getByRole('combobox', { name: /role/i })).not.toBeVisible()
 
     await memberCtx.close()
   })
