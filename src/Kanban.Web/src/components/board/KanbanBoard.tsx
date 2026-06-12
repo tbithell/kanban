@@ -8,7 +8,7 @@ import {
   useSensors,
   closestCenter,
 } from '@dnd-kit/core'
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
+import type { DragEndEvent, DragStartEvent, DragCancelEvent } from '@dnd-kit/core'
 import {
   SortableContext,
   horizontalListSortingStrategy,
@@ -162,7 +162,7 @@ export default function KanbanBoard({ board }: KanbanBoardProps) {
     onDragOver: () => ``,
     onDragEnd: ({ active, over }: DragEndEvent) =>
       over ? `Dropped ${active.id} at position near ${over.id}.` : `Drop cancelled.`,
-    onDragCancel: ({ active }) => `Move cancelled for ${active.id}.`,
+    onDragCancel: ({ active }: DragCancelEvent) => `Move cancelled for ${active.id}.`,
   }
 
   return (
