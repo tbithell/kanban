@@ -1,12 +1,17 @@
 import { useMutation } from '@tanstack/react-query'
 
-export interface AcceptInviteResponse {
+interface UserDto {
   id: string
   email: string
   displayName: string
   systemRole: string
   registeredAt: string
   lastSignInAt: string | null
+}
+
+export interface AcceptInviteResponse {
+  user: UserDto
+  boardId: string | null
 }
 
 export interface AcceptInviteError {

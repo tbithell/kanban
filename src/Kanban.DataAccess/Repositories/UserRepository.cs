@@ -66,6 +66,26 @@ public sealed class UserRepository : IUserRepository
             sql, new { id = id.ToString("D") }, transaction: tx);
     }
 
+    public async Task<IReadOnlyList<User>> FindByIdsAsync(IEnumerable<Guid> ids, IDbTransaction? tx = null)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+
+        var idList = ids.Select(id => id.ToString("D")).ToList();
+        if (idList.Count == 0)
+            return [];
+
+        const string sql = """
+            SELECT id, email, display_name AS DisplayName, system_role AS SystemRole,
+                   google_sub AS GoogleSub, registered_at AS RegisteredAt,
+                   last_sign_in_at AS LastSignInAt
+            FROM users
+            WHERE id IN @ids
+            """;
+
+        var results = await _connection.QueryAsync<User>(sql, new { ids = idList }, transaction: tx);
+        return results.AsList();
+    }
+
     public async Task InsertAsync(User user, IDbTransaction tx)
     {
         ArgumentNullException.ThrowIfNull(user);

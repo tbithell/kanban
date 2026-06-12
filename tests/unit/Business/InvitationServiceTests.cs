@@ -284,6 +284,9 @@ public sealed class InvitationServiceTests
         public Task<User?> FindByIdAsync(Guid id, IDbTransaction? tx = null)
             => Task.FromResult<User?>(null);
 
+        public Task<IReadOnlyList<User>> FindByIdsAsync(IEnumerable<Guid> ids, IDbTransaction? tx = null)
+            => Task.FromResult<IReadOnlyList<User>>([]);
+
         public Task InsertAsync(User user, IDbTransaction tx)
         {
             InsertedUsers.Add(user);
