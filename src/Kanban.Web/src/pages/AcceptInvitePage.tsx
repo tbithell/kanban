@@ -39,7 +39,7 @@ export default function AcceptInvitePage() {
     if (!isLoading && !isUnauthenticated && token) {
       hasAttempted.current = true
       mutateAsync(token)
-        .then(() => navigate('/'))
+        .then((result) => navigate(result.boardId ? `/boards/${result.boardId}` : '/'))
         .catch(() => {})
     }
   }, [isLoading, isUnauthenticated, token, mutateAsync, navigate])

@@ -132,6 +132,7 @@ builder.Services.AddScoped<IAuthorizationHandler, BoardAuthorizationHandler>();
 builder.Services.AddScoped<IBoardService, BoardService>();
 builder.Services.AddScoped<ILaneService, LaneService>();
 builder.Services.AddScoped<ICardService, CardService>();
+builder.Services.AddScoped<IBoardMembershipService, BoardMembershipService>();
 
 builder.Services.AddAuthentication(options =>
     {
@@ -395,6 +396,7 @@ InviteEndpoints.Map(v1RegisteredUserGroup);
 BoardEndpoints.Map(v1RegisteredUserGroup);
 LaneEndpoints.Map(v1RegisteredUserGroup);
 CardEndpoints.Map(v1RegisteredUserGroup);
+BoardMemberEndpoints.Map(v1RegisteredUserGroup);
 
 var v1GoogleAuthGroup = v1.MapGroup("/api/v1")
     .HasApiVersion(1, 0)
