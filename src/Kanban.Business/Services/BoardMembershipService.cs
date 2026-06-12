@@ -181,28 +181,30 @@ public sealed class BoardMembershipService : IBoardMembershipService
         if (!auth.Succeeded)
             throw new ForbiddenException("member.forbidden", "Only board owners can change member roles.");
 
-        var newRole = ToDomainRole(request.Role);
+        var preflightTargetRole = await _boardMemberRepository.FindRoleAsync(boardId, userId);
+        if (preflightTargetRole is null)
+            throw new NotFoundException("member.not_found", "Target user is not a member of this board.");
 
-        if (newRole != BoardRole.Owner)
-        {
-            var currentTargetRole = await _boardMemberRepository.FindRoleAsync(boardId, userId);
-            if (currentTargetRole == BoardRole.Owner)
-            {
-                var ownerCount = await _boardMemberRepository.CountOwnersAsync(boardId);
-                if (ownerCount <= 1)
-                    throw new BusinessRuleException("member.last_owner", "Cannot remove the last owner from the board.");
-            }
-        }
+        var newRole = ToDomainRole(request.Role);
 
         return await RetryPolicy.ExecuteAsync(async _ =>
         {
             using var tx = _transactionFactory.BeginDeferredTransaction(_dbConnection);
             try
             {
+                var currentTargetRole = await _boardMemberRepository.FindRoleAsync(boardId, userId, tx);
+                if (newRole != BoardRole.Owner && currentTargetRole == BoardRole.Owner)
+                {
+                    var ownerCount = await _boardMemberRepository.CountOwnersAsync(boardId, tx);
+                    if (ownerCount <= 1)
+                        throw new BusinessRuleException("member.last_owner", "Cannot remove the last owner from the board.");
+                }
+
                 await _boardMemberRepository.UpdateRoleAsync(boardId, userId, newRole, tx);
 
                 var members = await _boardMemberRepository.FindAllForBoardAsync(boardId, tx);
-                var updated = members.First(m => m.UserId == userId);
+                var updated = members.FirstOrDefault(m => m.UserId == userId)
+                    ?? throw new NotFoundException("member.not_found", "Target user is not a member of this board.");
                 var user = await _userRepository.FindByIdAsync(userId, tx);
                 var displayName = user?.DisplayName ?? userId.ToString();
 
@@ -239,19 +241,23 @@ public sealed class BoardMembershipService : IBoardMembershipService
         if (!auth.Succeeded)
             throw new ForbiddenException("member.forbidden", "Only board owners can remove members.");
 
-        var targetRole = await _boardMemberRepository.FindRoleAsync(boardId, userId);
-        if (targetRole == BoardRole.Owner)
-        {
-            var ownerCount = await _boardMemberRepository.CountOwnersAsync(boardId);
-            if (ownerCount <= 1)
-                throw new BusinessRuleException("member.last_owner", "Cannot remove the last owner from the board.");
-        }
+        var preflightTargetRole = await _boardMemberRepository.FindRoleAsync(boardId, userId);
+        if (preflightTargetRole is null)
+            throw new NotFoundException("member.not_found", "Target user is not a member of this board.");
 
         await RetryPolicy.ExecuteAsync(async _ =>
         {
             using var tx = _transactionFactory.BeginDeferredTransaction(_dbConnection);
             try
             {
+                var currentTargetRole = await _boardMemberRepository.FindRoleAsync(boardId, userId, tx);
+                if (currentTargetRole == BoardRole.Owner)
+                {
+                    var ownerCount = await _boardMemberRepository.CountOwnersAsync(boardId, tx);
+                    if (ownerCount <= 1)
+                        throw new BusinessRuleException("member.last_owner", "Cannot remove the last owner from the board.");
+                }
+
                 await _boardMemberRepository.DeleteAsync(boardId, userId, tx);
                 tx.Commit();
                 _logger.LogInformation(

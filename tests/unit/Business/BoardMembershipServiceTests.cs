@@ -194,6 +194,23 @@ public sealed class BoardMembershipServiceTests
         boardMemberRepo.UpdatedRole.Should().Be(BoardRole.Owner);
     }
 
+    [Fact]
+    public async Task ChangeRoleAsync_TargetNotMember_ThrowsNotFoundException()
+    {
+        var targetUserId = Guid.NewGuid();
+        var boardMemberRepo = new FakeBoardMemberRepository(
+            ownerCount: 1,
+            role: BoardRole.Owner,
+            nonMemberUserId: targetUserId);
+        var sut = CreateSut(boardMemberRepo: boardMemberRepo);
+        var request = new ChangeMemberRoleRequest(BoardRoleDto.Member);
+
+        var act = () => sut.ChangeRoleAsync(_boardId, targetUserId, request);
+
+        await act.Should().ThrowAsync<NotFoundException>()
+            .Where(e => e.Code == "member.not_found");
+    }
+
     // ── RemoveMemberAsync ─────────────────────────────────────────────────────────
 
     [Fact]
@@ -223,6 +240,22 @@ public sealed class BoardMembershipServiceTests
             .Where(e => e.Code == "member.last_owner");
     }
 
+    [Fact]
+    public async Task RemoveMemberAsync_TargetNotMember_ThrowsNotFoundException()
+    {
+        var targetUserId = Guid.NewGuid();
+        var boardMemberRepo = new FakeBoardMemberRepository(
+            ownerCount: 1,
+            role: BoardRole.Owner,
+            nonMemberUserId: targetUserId);
+        var sut = CreateSut(boardMemberRepo: boardMemberRepo);
+
+        var act = () => sut.RemoveMemberAsync(_boardId, targetUserId);
+
+        await act.Should().ThrowAsync<NotFoundException>()
+            .Where(e => e.Code == "member.not_found");
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────────
 
     private static User BuildUser(Guid id, string email) =>
@@ -241,6 +274,7 @@ public sealed class BoardMembershipServiceTests
         private readonly int _ownerCount;
         private readonly BoardRole? _role;
         private readonly Guid? _existingMemberUserId;
+        private readonly Guid? _nonMemberUserId;
         private readonly IReadOnlyList<BoardMember> _members;
 
         public bool DeleteCalled { get; private set; }
@@ -250,16 +284,22 @@ public sealed class BoardMembershipServiceTests
             int ownerCount = 1,
             BoardRole? role = null,
             Guid? existingMemberUserId = null,
-            IReadOnlyList<BoardMember>? members = null)
+            IReadOnlyList<BoardMember>? members = null,
+            Guid? nonMemberUserId = null)
         {
             _ownerCount = ownerCount;
             _role = role;
             _existingMemberUserId = existingMemberUserId;
+            _nonMemberUserId = nonMemberUserId;
             _members = members ?? [];
         }
 
         public Task<BoardRole?> FindRoleAsync(Guid boardId, Guid userId, IDbTransaction? tx = null)
-            => Task.FromResult(_existingMemberUserId == userId ? (BoardRole?)BoardRole.Member : _role);
+        {
+            if (_nonMemberUserId.HasValue && userId == _nonMemberUserId.Value)
+                return Task.FromResult<BoardRole?>(null);
+            return Task.FromResult(_existingMemberUserId == userId ? (BoardRole?)BoardRole.Member : _role);
+        }
 
         public Task<int> CountOwnersAsync(Guid boardId, IDbTransaction? tx = null)
             => Task.FromResult(_ownerCount);
