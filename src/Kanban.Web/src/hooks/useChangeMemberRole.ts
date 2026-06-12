@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import type { BoardMember, ApiError } from './useBoardMembers'
+import type { BoardMember } from './useBoardMembers'
+import type { ApiError } from './useBoards'
 
 interface ChangeRoleRequest {
   boardId: string
