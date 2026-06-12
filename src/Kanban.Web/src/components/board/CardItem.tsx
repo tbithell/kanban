@@ -78,6 +78,7 @@ export default function CardItem({
       {...attributes}
       {...(canModify ? listeners : {})}
       {...describedBy}
+      {...(canModify ? { 'data-drag-handle': '' } : {})}
     >
       <div className={styles.body}>
         <Text>{card.title}</Text>

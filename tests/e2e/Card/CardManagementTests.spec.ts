@@ -107,6 +107,8 @@ test.describe('US2: Board member adds and manages cards', () => {
     await expect(page.getByText('Card Alpha')).toBeVisible({ timeout: 10_000 })
 
     await page.getByRole('button', { name: /delete card/i }).first().click()
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5_000 })
+    await page.getByRole('button', { name: /^delete card$/i }).click()
     await page.getByRole('button', { name: /confirm/i }).click()
     await expect(page.getByRole('dialog')).not.toBeAttached({ timeout: 10_000 })
 

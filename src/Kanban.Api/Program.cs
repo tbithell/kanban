@@ -57,6 +57,11 @@ builder.Services.AddOptions<ConnectionStringOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
+builder.Services.AddOptions<RateLimitOptions>()
+    .Bind(builder.Configuration.GetSection(RateLimitOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
 // ── Database ──────────────────────────────────────────────────────────────────
 
 DapperConfiguration.RegisterTypeHandlers();
@@ -218,6 +223,10 @@ builder.Services.AddHealthChecks()
 
 builder.Services.AddRateLimiter(opts =>
 {
+    var rateLimits = builder.Configuration
+        .GetSection(RateLimitOptions.SectionName)
+        .Get<RateLimitOptions>() ?? new RateLimitOptions();
+
     opts.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     opts.OnRejected = async (ctx, _) =>
     {
@@ -234,7 +243,7 @@ builder.Services.AddRateLimiter(opts =>
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
             {
-                PermitLimit = 10,
+                PermitLimit = rateLimits.AnonymousPermitLimit,
                 Window = TimeSpan.FromMinutes(1),
             }));
 
@@ -245,7 +254,7 @@ builder.Services.AddRateLimiter(opts =>
             ?? "anonymous";
         return RateLimitPartition.GetSlidingWindowLimiter(userId, _ => new SlidingWindowRateLimiterOptions
         {
-            PermitLimit = 100,
+            PermitLimit = rateLimits.AuthenticatedPermitLimit,
             Window = TimeSpan.FromMinutes(1),
             SegmentsPerWindow = 6,
         });
@@ -258,7 +267,7 @@ builder.Services.AddRateLimiter(opts =>
             ?? "anonymous";
         return RateLimitPartition.GetSlidingWindowLimiter(userId, _ => new SlidingWindowRateLimiterOptions
         {
-            PermitLimit = 30,
+            PermitLimit = rateLimits.MutatingPermitLimit,
             Window = TimeSpan.FromMinutes(1),
             SegmentsPerWindow = 6,
         });

@@ -84,7 +84,6 @@ export default function Lane({ lane, callerRole, dragInstructionsId, onDelete }:
       className={`${styles.lane}${isDragging ? ` ${styles.laneGhost}` : ''}`}
       style={style}
       aria-label={`Lane: ${lane.name}`}
-      {...attributes}
     >
       <div className={styles.header}>
         <Title2
@@ -96,14 +95,26 @@ export default function Lane({ lane, callerRole, dragInstructionsId, onDelete }:
           {lane.name}
         </Title2>
         {canModify && (
-          <Button
-            size="small"
-            appearance="subtle"
-            aria-label={`Delete lane ${lane.name}`}
-            onClick={() => onDelete(lane.boardId, lane.id)}
-          >
-            Delete
-          </Button>
+          <>
+            <Button
+              size="small"
+              appearance="subtle"
+              aria-label={`Drag to reorder lane ${lane.name}`}
+              {...attributes}
+              {...listeners}
+              data-drag-handle=""
+            >
+              ⠿
+            </Button>
+            <Button
+              size="small"
+              appearance="subtle"
+              aria-label={`Delete lane ${lane.name}`}
+              onClick={() => onDelete(lane.boardId, lane.id)}
+            >
+              Delete
+            </Button>
+          </>
         )}
       </div>
       <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
