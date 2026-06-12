@@ -84,7 +84,11 @@ test.describe('US4 — Board owner invites and manages board members', () => {
     await expect(page.getByRole('list', { name: /board members/i })).toBeVisible({ timeout: 5_000 })
 
     const memberRow = page.getByRole('listitem').filter({ hasText: memberEmail })
+    const roleChangeResp = page.waitForResponse(
+      r => r.url().includes(`/boards/${board.id}/members`) && r.status() === 200,
+    )
     await memberRow.getByRole('combobox', { name: /role/i }).selectOption('Viewer')
+    await roleChangeResp
 
     await expect(memberRow).toContainText(/viewer/i, { timeout: 5_000 })
 
