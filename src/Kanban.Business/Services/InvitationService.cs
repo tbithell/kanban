@@ -1,5 +1,6 @@
 using System.Data;
 using FluentValidation;
+using Kanban.Business.Infrastructure;
 using Kanban.Business.Interfaces;
 using Kanban.Business.Transforms;
 using Kanban.Contracts;
@@ -11,8 +12,6 @@ using Kanban.Domain.Events;
 using Kanban.Domain.Exceptions;
 using Kanban.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
-using Polly;
-using Polly.Retry;
 
 namespace Kanban.Business.Services;
 
@@ -25,20 +24,6 @@ public sealed class InvitationService : IInvitationService
     private readonly IDbConnection _dbConnection;
     private readonly IDbConnectionFactory _transactionFactory;
     private readonly ILogger<InvitationService> _logger;
-
-    private static readonly ResiliencePipeline RetryPolicy =
-        new ResiliencePipelineBuilder()
-            .AddRetry(new RetryStrategyOptions
-            {
-                MaxRetryAttempts = 5,
-                Delay = TimeSpan.FromMilliseconds(50),
-                BackoffType = DelayBackoffType.Exponential,
-                UseJitter = true,
-                ShouldHandle = new PredicateBuilder().Handle<Exception>(ex =>
-                    ex.Message.Contains("SQLITE_BUSY", StringComparison.OrdinalIgnoreCase) ||
-                    ex.Message.Contains("database is locked", StringComparison.OrdinalIgnoreCase)),
-            })
-            .Build();
 
     public InvitationService(
         IUserRepository userRepository,
@@ -83,7 +68,7 @@ public sealed class InvitationService : IInvitationService
         if (boardId is null && callerRole != SystemRole.Admin)
             throw new ForbiddenException("invite.forbidden", "Only admins can issue invitations.");
 
-        return await RetryPolicy.ExecuteAsync(async ct =>
+        return await SqliteRetryPolicy.Pipeline.ExecuteAsync(async ct =>
         {
             using var tx = _transactionFactory.BeginDeferredTransaction(_dbConnection);
             try
@@ -157,7 +142,7 @@ public sealed class InvitationService : IInvitationService
         new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("googleSub") }.ValidateAndThrow(googleSub);
         new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("displayName") }.ValidateAndThrow(displayName);
 
-        return await RetryPolicy.ExecuteAsync(async ct =>
+        return await SqliteRetryPolicy.Pipeline.ExecuteAsync(async ct =>
         {
             var tokenHash = InvitationToken.HashRaw(rawToken);
             var acceptedAt = DateTimeOffset.UtcNow;

@@ -12,6 +12,7 @@ using Kanban.Api.Health;
 using Kanban.Api.Options;
 using FluentValidation;
 using Kanban.Business.Interfaces;
+using Kanban.Business.Options;
 using Kanban.Business.Services;
 using Kanban.Api.Endpoints;
 using Kanban.Api.Infrastructure;
@@ -59,6 +60,11 @@ builder.Services.AddOptions<ConnectionStringOptions>()
 
 builder.Services.AddOptions<RateLimitOptions>()
     .Bind(builder.Configuration.GetSection(RateLimitOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddOptions<FrontendOptions>()
+    .Bind(builder.Configuration.GetSection(FrontendOptions.SectionName))
     .ValidateDataAnnotations()
     .ValidateOnStart();
 

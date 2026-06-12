@@ -1,6 +1,8 @@
 using System.Data;
 using FluentValidation;
+using Kanban.Business.Infrastructure;
 using Kanban.Business.Interfaces;
+using Kanban.Business.Options;
 using Kanban.Business.Transforms;
 using Kanban.Contracts;
 using Kanban.DataAccess;
@@ -10,8 +12,7 @@ using Kanban.Domain.Enums;
 using Kanban.Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
-using Polly;
-using Polly.Retry;
+using Microsoft.Extensions.Options;
 
 namespace Kanban.Business.Services;
 
@@ -24,21 +25,8 @@ public sealed class BoardMembershipService : IBoardMembershipService
     private readonly IAuthorizationService _authorizationService;
     private readonly IDbConnection _dbConnection;
     private readonly IDbConnectionFactory _transactionFactory;
+    private readonly IOptions<FrontendOptions> _frontendOptions;
     private readonly ILogger<BoardMembershipService> _logger;
-
-    private static readonly ResiliencePipeline RetryPolicy =
-        new ResiliencePipelineBuilder()
-            .AddRetry(new RetryStrategyOptions
-            {
-                MaxRetryAttempts = 5,
-                Delay = TimeSpan.FromMilliseconds(50),
-                BackoffType = DelayBackoffType.Exponential,
-                UseJitter = true,
-                ShouldHandle = new PredicateBuilder().Handle<Exception>(ex =>
-                    ex.Message.Contains("SQLITE_BUSY", StringComparison.OrdinalIgnoreCase) ||
-                    ex.Message.Contains("database is locked", StringComparison.OrdinalIgnoreCase)),
-            })
-            .Build();
 
     public BoardMembershipService(
         IBoardMemberRepository boardMemberRepository,
@@ -48,6 +36,7 @@ public sealed class BoardMembershipService : IBoardMembershipService
         IAuthorizationService authorizationService,
         IDbConnection dbConnection,
         IDbConnectionFactory transactionFactory,
+        IOptions<FrontendOptions> frontendOptions,
         ILogger<BoardMembershipService> logger)
     {
         ArgumentNullException.ThrowIfNull(boardMemberRepository);
@@ -57,6 +46,7 @@ public sealed class BoardMembershipService : IBoardMembershipService
         ArgumentNullException.ThrowIfNull(authorizationService);
         ArgumentNullException.ThrowIfNull(dbConnection);
         ArgumentNullException.ThrowIfNull(transactionFactory);
+        ArgumentNullException.ThrowIfNull(frontendOptions);
         ArgumentNullException.ThrowIfNull(logger);
         _boardMemberRepository = boardMemberRepository;
         _invitationService = invitationService;
@@ -65,6 +55,7 @@ public sealed class BoardMembershipService : IBoardMembershipService
         _authorizationService = authorizationService;
         _dbConnection = dbConnection;
         _transactionFactory = transactionFactory;
+        _frontendOptions = frontendOptions;
         _logger = logger;
     }
 
@@ -87,13 +78,11 @@ public sealed class BoardMembershipService : IBoardMembershipService
             .ToList();
     }
 
-    public async Task InviteAsync(Guid boardId, InviteBoardMemberRequest request, string frontendBaseUrl)
+    public async Task InviteAsync(Guid boardId, InviteBoardMemberRequest request)
     {
         new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }
             .ValidateAndThrow(boardId);
         ArgumentNullException.ThrowIfNull(request);
-        new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("frontendBaseUrl") }
-            .ValidateAndThrow(frontendBaseUrl);
 
         var callerId = _currentUserService.UserId!.Value;
         var callerRole = await _boardMemberRepository.FindRoleAsync(boardId, callerId) ?? throw new NotFoundException("board.not_found", "Board not found.");
@@ -104,7 +93,7 @@ public sealed class BoardMembershipService : IBoardMembershipService
         if (!auth.Succeeded)
             throw new ForbiddenException("member.forbidden", "Only board owners can invite members.");
 
-        var callerSystemRole = _currentUserService.SystemRole == "admin"
+        var callerSystemRole = _currentUserService.SystemRole == SystemRole.Admin.ToString().ToLowerInvariant()
             ? SystemRole.Admin
             : SystemRole.Standard;
 
@@ -116,7 +105,7 @@ public sealed class BoardMembershipService : IBoardMembershipService
                 throw new ConflictException("member.already_member", "This user is already a member of the board.");
 
             var boardRole = ToDomainRole(request.Role);
-            await RetryPolicy.ExecuteAsync(async _ =>
+            await SqliteRetryPolicy.Pipeline.ExecuteAsync(async _ =>
             {
                 using var tx = _transactionFactory.BeginDeferredTransaction(_dbConnection);
                 try
@@ -147,7 +136,7 @@ public sealed class BoardMembershipService : IBoardMembershipService
             request.Email,
             callerId,
             callerSystemRole,
-            frontendBaseUrl,
+            _frontendOptions.Value.BaseUrl,
             boardId: boardId,
             boardRole: ToDomainRole(request.Role));
 
@@ -176,12 +165,13 @@ public sealed class BoardMembershipService : IBoardMembershipService
         var preflightTargetRole = await _boardMemberRepository.FindRoleAsync(boardId, userId) ?? throw new NotFoundException("member.not_found", "Target user is not a member of this board.");
         var newRole = ToDomainRole(request.Role);
 
-        return await RetryPolicy.ExecuteAsync(async _ =>
+        return await SqliteRetryPolicy.Pipeline.ExecuteAsync(async _ =>
         {
             using var tx = _transactionFactory.BeginDeferredTransaction(_dbConnection);
             try
             {
-                var currentTargetRole = await _boardMemberRepository.FindRoleAsync(boardId, userId, tx);
+                var currentTargetRole = await _boardMemberRepository.FindRoleAsync(boardId, userId, tx)
+                    ?? throw new NotFoundException("member.not_found", "Target user is not a member of this board.");
                 if (newRole != BoardRole.Owner && currentTargetRole == BoardRole.Owner)
                 {
                     var ownerCount = await _boardMemberRepository.CountOwnersAsync(boardId, tx);
@@ -228,12 +218,13 @@ public sealed class BoardMembershipService : IBoardMembershipService
             throw new ForbiddenException("member.forbidden", "Only board owners can remove members.");
 
         var preflightTargetRole = await _boardMemberRepository.FindRoleAsync(boardId, userId) ?? throw new NotFoundException("member.not_found", "Target user is not a member of this board.");
-        await RetryPolicy.ExecuteAsync(async _ =>
+        await SqliteRetryPolicy.Pipeline.ExecuteAsync(async _ =>
         {
             using var tx = _transactionFactory.BeginDeferredTransaction(_dbConnection);
             try
             {
-                var currentTargetRole = await _boardMemberRepository.FindRoleAsync(boardId, userId, tx);
+                var currentTargetRole = await _boardMemberRepository.FindRoleAsync(boardId, userId, tx)
+                    ?? throw new NotFoundException("member.not_found", "Target user is not a member of this board.");
                 if (currentTargetRole == BoardRole.Owner)
                 {
                     var ownerCount = await _boardMemberRepository.CountOwnersAsync(boardId, tx);

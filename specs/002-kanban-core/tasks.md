@@ -249,8 +249,8 @@ is refused — either by the UI hiding the control or by returning 403 from the 
 
 ### Implementation for US5
 
-- [ ] T080 [US5] Update board UI components to conditionally hide write controls when `callerRole === 'Viewer'` — hide "Add Card" button, hide drag handles, hide edit/delete card buttons, hide "Add Lane" button, hide rename/delete lane controls, disable `CardItem` and `Lane` sortable interaction; pass `callerRole` as prop down from `BoardPage` → `KanbanBoard` → `Lane` → `CardItem` in `src/Kanban.Web/src/components/board/KanbanBoard.tsx`, `Lane.tsx`, `CardItem.tsx`, `AddCardForm.tsx`, `AddLaneForm.tsx`
-- [ ] T081 [P] [US5] Write Playwright e2e tests for US5 acceptance scenarios 1–2 in `tests/e2e/BoardManagementTests.cs` — sign in as Viewer-role user, confirm board and all cards visible, confirm no write controls visible, confirm direct API write attempts return 403 (not just hidden controls)
+- [X] T080 [US5] Update board UI components to conditionally hide write controls when `callerRole === 'Viewer'` — hide "Add Card" button, hide drag handles, hide edit/delete card buttons, hide "Add Lane" button, hide rename/delete lane controls, disable `CardItem` and `Lane` sortable interaction; pass `callerRole` as prop down from `BoardPage` → `KanbanBoard` → `Lane` → `CardItem` in `src/Kanban.Web/src/components/board/KanbanBoard.tsx`, `Lane.tsx`, `CardItem.tsx`, `AddCardForm.tsx`, `AddLaneForm.tsx`
+- [X] T081 [P] [US5] Write Playwright e2e tests for US5 acceptance scenarios 1–2 in `tests/e2e/BoardManagementTests.cs` — sign in as Viewer-role user, confirm board and all cards visible, confirm no write controls visible, confirm direct API write attempts return 403 (not just hidden controls)
 
 **Checkpoint**: Viewer experience is enforced in both UI and API; US5 e2e scenarios pass.
 

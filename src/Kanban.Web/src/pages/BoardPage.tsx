@@ -39,21 +39,17 @@ export default function BoardPage() {
 
   if (!board) return null
 
-  const isOwner = board.callerRole === 'Owner'
-
   return (
     <FluentProvider theme={webLightTheme}>
       <div className={styles.root}>
         <div className={styles.header}>
           <Title1 as="h1">{board.name}</Title1>
-          {isOwner && (
-            <Button onClick={() => setMembersOpen((o) => !o)} aria-label="Members">
-              Members
-            </Button>
-          )}
+          <Button onClick={() => setMembersOpen((o) => !o)} aria-label="Members">
+            Members
+          </Button>
         </div>
 
-        {isOwner && membersOpen && (
+        {membersOpen && (
           <div className={styles.membersPanel}>
             <BoardMembersPanel boardId={board.id} callerRole={board.callerRole} />
           </div>

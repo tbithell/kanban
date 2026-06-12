@@ -102,6 +102,35 @@ describe('BoardPage', () => {
     expect(laneHeadings[2]).toHaveTextContent('Done')
   })
 
+  it('shows Members button for Owner role', () => {
+    renderPage()
+    expect(screen.getByRole('button', { name: /members/i })).toBeInTheDocument()
+  })
+
+  it('shows Members button for Member role', () => {
+    mockUseBoard.mockReturnValue({
+      data: { ...boardWithThreeLanes, callerRole: 'Member' },
+      isPending: false,
+      isSuccess: true,
+      isError: false,
+      error: null,
+    } as ReturnType<typeof useBoard>)
+    renderPage()
+    expect(screen.getByRole('button', { name: /members/i })).toBeInTheDocument()
+  })
+
+  it('shows Members button for Viewer role', () => {
+    mockUseBoard.mockReturnValue({
+      data: { ...boardWithThreeLanes, callerRole: 'Viewer' },
+      isPending: false,
+      isSuccess: true,
+      isError: false,
+      error: null,
+    } as ReturnType<typeof useBoard>)
+    renderPage()
+    expect(screen.getByRole('button', { name: /members/i })).toBeInTheDocument()
+  })
+
   it('does not render a heading when board data is pending', () => {
     mockUseBoard.mockReturnValue({
       data: undefined,

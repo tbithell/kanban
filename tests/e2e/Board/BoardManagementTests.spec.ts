@@ -116,3 +116,159 @@ test.describe('US1: Non-admin user cannot create boards', () => {
     await ctx.close()
   })
 })
+
+// ── US5: Viewer browses a board read-only ────────────────────────────────────
+
+test.describe('US5: Viewer browses a board read-only', () => {
+  test.use({ storageState: ADMIN_AUTH })
+
+  test('scenario 1 — viewer sees all lanes and cards but no write controls', async ({
+    page,
+    request,
+    browser,
+  }) => {
+    const boardResp = await request.post(`${API_BASE}/api/v1/boards`, {
+      data: { name: `Viewer Board ${Date.now()}` },
+    })
+    expect(boardResp.ok()).toBeTruthy()
+    const board = await boardResp.json()
+
+    const laneResp = await request.post(`${API_BASE}/api/v1/boards/${board.id}/lanes`, {
+      data: { name: 'Backlog' },
+    })
+    expect(laneResp.ok()).toBeTruthy()
+    const lane = await laneResp.json()
+
+    const cardResp = await request.post(
+      `${API_BASE}/api/v1/boards/${board.id}/lanes/${lane.id}/cards`,
+      { data: { title: 'Sample Card' } },
+    )
+    expect(cardResp.ok()).toBeTruthy()
+
+    const viewerEmail = `e2e-us5-viewer-${Date.now()}@example.com`
+    const seedResp = await request.post(`${API_BASE}/api/v1/dev/seed-board-member`, {
+      data: { email: viewerEmail, boardId: board.id, role: 'Viewer' },
+    })
+    expect(seedResp.ok(), `Seed viewer failed: ${seedResp.status()}`).toBeTruthy()
+
+    const viewerCtx = await browser.newContext()
+    const viewerPage = await viewerCtx.newPage()
+    await viewerPage.goto(
+      `${API_BASE}/api/v1/dev/authenticate?email=${encodeURIComponent(viewerEmail)}&displayName=Viewer+User`,
+    )
+    await viewerPage.waitForURL(`${WEB_BASE}/**`)
+
+    await viewerPage.goto(`${WEB_BASE}/boards/${board.id}`)
+    await expect(viewerPage.getByRole('heading', { name: board.name })).toBeVisible({
+      timeout: 10_000,
+    })
+
+    // Lane and card content is visible
+    await expect(viewerPage.getByRole('region', { name: /lane: backlog/i })).toBeVisible()
+    await expect(viewerPage.getByText('Sample Card')).toBeVisible()
+
+    // Write controls are hidden
+    await expect(viewerPage.getByRole('button', { name: /add lane/i })).not.toBeVisible()
+    await expect(viewerPage.getByRole('button', { name: /add card/i })).not.toBeVisible()
+    await expect(viewerPage.getByRole('button', { name: /edit card/i })).not.toBeVisible()
+    await expect(viewerPage.getByRole('button', { name: /delete card/i })).not.toBeVisible()
+    await expect(viewerPage.getByRole('button', { name: /delete lane/i })).not.toBeVisible()
+    await expect(viewerPage.getByRole('button', { name: /drag to reorder/i })).not.toBeVisible()
+
+    await viewerCtx.close()
+  })
+
+  test('scenario 2 — viewer direct API write attempts all return 403', async ({
+    request,
+    browser,
+  }) => {
+    const boardResp = await request.post(`${API_BASE}/api/v1/boards`, {
+      data: { name: `Viewer API Board ${Date.now()}` },
+    })
+    expect(boardResp.ok()).toBeTruthy()
+    const board = await boardResp.json()
+
+    const laneResp = await request.post(`${API_BASE}/api/v1/boards/${board.id}/lanes`, {
+      data: { name: 'To Do' },
+    })
+    expect(laneResp.ok()).toBeTruthy()
+    const lane = await laneResp.json()
+
+    const cardResp = await request.post(
+      `${API_BASE}/api/v1/boards/${board.id}/lanes/${lane.id}/cards`,
+      { data: { title: 'Existing Card' } },
+    )
+    expect(cardResp.ok()).toBeTruthy()
+    const card = await cardResp.json()
+
+    const viewerEmail = `e2e-us5-api-viewer-${Date.now()}@example.com`
+    const seedResp = await request.post(`${API_BASE}/api/v1/dev/seed-board-member`, {
+      data: { email: viewerEmail, boardId: board.id, role: 'Viewer' },
+    })
+    expect(seedResp.ok(), `Seed viewer failed: ${seedResp.status()}`).toBeTruthy()
+
+    const viewerCtx = await browser.newContext()
+    const viewerPage = await viewerCtx.newPage()
+    await viewerPage.goto(
+      `${API_BASE}/api/v1/dev/authenticate?email=${encodeURIComponent(viewerEmail)}&displayName=Viewer+User`,
+    )
+    await viewerPage.waitForURL(`${WEB_BASE}/**`)
+
+    const api = viewerPage.request
+
+    // Create lane — 403
+    const createLaneResp = await api.post(`${API_BASE}/api/v1/boards/${board.id}/lanes`, {
+      data: { name: 'Viewer Lane' },
+    })
+    expect(createLaneResp.status(), 'create lane should be 403').toBe(403)
+
+    // Rename lane — 403
+    const renameLaneResp = await api.patch(
+      `${API_BASE}/api/v1/boards/${board.id}/lanes/${lane.id}`,
+      { data: { name: 'Renamed' } },
+    )
+    expect(renameLaneResp.status(), 'rename lane should be 403').toBe(403)
+
+    // Move lane — 403
+    const moveLaneResp = await api.post(
+      `${API_BASE}/api/v1/boards/${board.id}/lanes/${lane.id}/move`,
+      { data: { targetPosition: 1, expectedVersion: lane.version } },
+    )
+    expect(moveLaneResp.status(), 'move lane should be 403').toBe(403)
+
+    // Delete lane — 403
+    const deleteLaneResp = await api.delete(
+      `${API_BASE}/api/v1/boards/${board.id}/lanes/${lane.id}`,
+    )
+    expect(deleteLaneResp.status(), 'delete lane should be 403').toBe(403)
+
+    // Create card — 403
+    const createCardResp = await api.post(
+      `${API_BASE}/api/v1/boards/${board.id}/lanes/${lane.id}/cards`,
+      { data: { title: 'Viewer Card' } },
+    )
+    expect(createCardResp.status(), 'create card should be 403').toBe(403)
+
+    // Update card — 403
+    const updateCardResp = await api.patch(
+      `${API_BASE}/api/v1/boards/${board.id}/cards/${card.id}`,
+      { data: { title: 'Updated' } },
+    )
+    expect(updateCardResp.status(), 'update card should be 403').toBe(403)
+
+    // Move card — 403
+    const moveCardResp = await api.post(
+      `${API_BASE}/api/v1/boards/${board.id}/cards/${card.id}/move`,
+      { data: { targetLaneId: lane.id, targetPosition: 1, expectedVersion: card.version } },
+    )
+    expect(moveCardResp.status(), 'move card should be 403').toBe(403)
+
+    // Delete card — 403
+    const deleteCardResp = await api.delete(
+      `${API_BASE}/api/v1/boards/${board.id}/cards/${card.id}`,
+    )
+    expect(deleteCardResp.status(), 'delete card should be 403').toBe(403)
+
+    await viewerCtx.close()
+  })
+})

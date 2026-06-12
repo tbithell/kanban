@@ -1,5 +1,6 @@
 using System.Data;
 using FluentAssertions;
+using Kanban.Business.Options;
 using Kanban.Business.Services;
 using Kanban.Business.Interfaces;
 using Kanban.Contracts;
@@ -9,6 +10,7 @@ using Kanban.Domain.Enums;
 using Kanban.Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 using static Kanban.Tests.Unit.Builders.BoardMemberBuilder;
@@ -29,6 +31,7 @@ public sealed class BoardMembershipServiceTests
     {
         var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
         connection.Open();
+        var frontendOptions = Options.Create(new FrontendOptions { BaseUrl = "http://localhost:5173" });
         return new BoardMembershipService(
             boardMemberRepo ?? new FakeBoardMemberRepository(ownerCount: 1, role: BoardRole.Owner),
             invitationService ?? new FakeInvitationService(),
@@ -37,6 +40,7 @@ public sealed class BoardMembershipServiceTests
             authService ?? BuildSucceedingAuthService(),
             connection,
             new FakeDbConnectionFactory(),
+            frontendOptions,
             NullLogger<BoardMembershipService>.Instance);
     }
 
@@ -102,7 +106,7 @@ public sealed class BoardMembershipServiceTests
         var sut = CreateSut(invitationService: fakeInvitation);
         var request = new InviteBoardMemberRequest("new@test.local", BoardRoleDto.Member);
 
-        await sut.InviteAsync(_boardId, request, "http://localhost:5173");
+        await sut.InviteAsync(_boardId, request);
 
         fakeInvitation.IssueCalled.Should().BeTrue();
     }
@@ -119,7 +123,7 @@ public sealed class BoardMembershipServiceTests
         var sut = CreateSut(boardMemberRepo: boardMemberRepo, userRepo: userRepo);
         var request = new InviteBoardMemberRequest("existing@test.local", BoardRoleDto.Member);
 
-        var act = () => sut.InviteAsync(_boardId, request, "http://localhost:5173");
+        var act = () => sut.InviteAsync(_boardId, request);
 
         await act.Should().ThrowAsync<ConflictException>()
             .Where(e => e.Code == "member.already_member");
@@ -131,7 +135,7 @@ public sealed class BoardMembershipServiceTests
         var sut = CreateSut(authService: BuildFailingAuthService());
         var request = new InviteBoardMemberRequest("newperson@test.local", BoardRoleDto.Member);
 
-        var act = () => sut.InviteAsync(_boardId, request, "http://localhost:5173");
+        var act = () => sut.InviteAsync(_boardId, request);
 
         await act.Should().ThrowAsync<ForbiddenException>();
     }
@@ -142,7 +146,7 @@ public sealed class BoardMembershipServiceTests
         var sut = CreateSut(authService: BuildFailingAuthService());
         var request = new InviteBoardMemberRequest("someone@test.local", BoardRoleDto.Viewer);
 
-        var act = () => sut.InviteAsync(_boardId, request, "http://localhost:5173");
+        var act = () => sut.InviteAsync(_boardId, request);
 
         await act.Should().ThrowAsync<ForbiddenException>();
     }
@@ -211,6 +215,24 @@ public sealed class BoardMembershipServiceTests
             .Where(e => e.Code == "member.not_found");
     }
 
+    [Fact]
+    public async Task ChangeRoleAsync_TargetConcurrentlyRemovedInsideTransaction_ThrowsNotFoundException()
+    {
+        var targetUserId = Guid.NewGuid();
+        var boardMemberRepo = new FakeBoardMemberRepository(
+            ownerCount: 2,
+            role: BoardRole.Owner,
+            existingMemberUserId: targetUserId,
+            targetNullInsideTx: true);
+        var sut = CreateSut(boardMemberRepo: boardMemberRepo);
+        var request = new ChangeMemberRoleRequest(BoardRoleDto.Member);
+
+        var act = () => sut.ChangeRoleAsync(_boardId, targetUserId, request);
+
+        await act.Should().ThrowAsync<NotFoundException>()
+            .Where(e => e.Code == "member.not_found");
+    }
+
     // ── RemoveMemberAsync ─────────────────────────────────────────────────────────
 
     [Fact]
@@ -256,6 +278,23 @@ public sealed class BoardMembershipServiceTests
             .Where(e => e.Code == "member.not_found");
     }
 
+    [Fact]
+    public async Task RemoveMemberAsync_TargetConcurrentlyRemovedInsideTransaction_ThrowsNotFoundException()
+    {
+        var targetUserId = Guid.NewGuid();
+        var boardMemberRepo = new FakeBoardMemberRepository(
+            ownerCount: 2,
+            role: BoardRole.Owner,
+            existingMemberUserId: targetUserId,
+            targetNullInsideTx: true);
+        var sut = CreateSut(boardMemberRepo: boardMemberRepo);
+
+        var act = () => sut.RemoveMemberAsync(_boardId, targetUserId);
+
+        await act.Should().ThrowAsync<NotFoundException>()
+            .Where(e => e.Code == "member.not_found");
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────────
 
     private static User BuildUser(Guid id, string email) =>
@@ -276,6 +315,7 @@ public sealed class BoardMembershipServiceTests
         private readonly Guid? _existingMemberUserId;
         private readonly Guid? _nonMemberUserId;
         private readonly IReadOnlyList<BoardMember> _members;
+        private readonly bool _targetNullInsideTx;
 
         public bool DeleteCalled { get; private set; }
         public BoardRole? UpdatedRole { get; private set; }
@@ -285,18 +325,22 @@ public sealed class BoardMembershipServiceTests
             BoardRole? role = null,
             Guid? existingMemberUserId = null,
             IReadOnlyList<BoardMember>? members = null,
-            Guid? nonMemberUserId = null)
+            Guid? nonMemberUserId = null,
+            bool targetNullInsideTx = false)
         {
             _ownerCount = ownerCount;
             _role = role;
             _existingMemberUserId = existingMemberUserId;
             _nonMemberUserId = nonMemberUserId;
             _members = members ?? [];
+            _targetNullInsideTx = targetNullInsideTx;
         }
 
         public Task<BoardRole?> FindRoleAsync(Guid boardId, Guid userId, IDbTransaction? tx = null)
         {
             if (_nonMemberUserId.HasValue && userId == _nonMemberUserId.Value)
+                return Task.FromResult<BoardRole?>(null);
+            if (_targetNullInsideTx && tx is not null && _existingMemberUserId.HasValue && userId == _existingMemberUserId.Value)
                 return Task.FromResult<BoardRole?>(null);
             return Task.FromResult(_existingMemberUserId == userId ? (BoardRole?)BoardRole.Member : _role);
         }
