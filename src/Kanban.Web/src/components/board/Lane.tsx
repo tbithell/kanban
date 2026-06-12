@@ -86,12 +86,7 @@ export default function Lane({ lane, callerRole, dragInstructionsId, onDelete }:
       aria-label={`Lane: ${lane.name}`}
     >
       <div className={styles.header}>
-        <Title2
-          as="h2"
-          aria-label={`Lane: ${lane.name}`}
-          {...(canModify ? listeners : {})}
-          style={{ cursor: canModify ? 'grab' : 'default' }}
-        >
+        <Title2 as="h2" aria-label={`Lane: ${lane.name}`}>
           {lane.name}
         </Title2>
         {canModify && (

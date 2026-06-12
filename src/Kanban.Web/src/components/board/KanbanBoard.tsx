@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react'
+import { useId, useState } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -14,7 +14,15 @@ import {
   horizontalListSortingStrategy,
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable'
-import { makeStyles, tokens } from '@fluentui/react-components'
+import {
+  makeStyles,
+  tokens,
+  Toast,
+  ToastBody,
+  ToastTitle,
+  Toaster,
+  useToastController,
+} from '@fluentui/react-components'
 import type { BoardDetail, Card, Lane as LaneData } from '../../hooks/useBoard'
 import { useMoveCard } from '../../hooks/useMoveCard'
 import { useMoveLane } from '../../hooks/useMoveLane'
@@ -54,8 +62,9 @@ type ActiveItem = { type: 'card'; item: Card } | { type: 'lane'; item: LaneData 
 export default function KanbanBoard({ board }: KanbanBoardProps) {
   const styles = useStyles()
   const instructionsId = useId()
+  const toasterId = useId()
+  const { dispatchToast } = useToastController(toasterId)
   const [activeItem, setActiveItem] = useState<ActiveItem>(null)
-  const activeRef = useRef<ActiveItem>(null)
 
   const canModify = board.callerRole === 'Owner' || board.callerRole === 'Member'
 
@@ -74,22 +83,21 @@ export default function KanbanBoard({ board }: KanbanBoardProps) {
   const handleDragStart = ({ active }: DragStartEvent) => {
     const card = board.lanes.flatMap((l) => l.cards).find((c) => c.id === active.id)
     if (card) {
-      const next: ActiveItem = { type: 'card', item: card }
-      setActiveItem(next)
-      activeRef.current = next
+      setActiveItem({ type: 'card', item: card })
       return
     }
     const lane = board.lanes.find((l) => l.id === active.id)
     if (lane) {
-      const next: ActiveItem = { type: 'lane', item: lane }
-      setActiveItem(next)
-      activeRef.current = next
+      setActiveItem({ type: 'lane', item: lane })
     }
+  }
+
+  const handleDragCancel = () => {
+    setActiveItem(null)
   }
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     setActiveItem(null)
-    activeRef.current = null
     if (!over || active.id === over.id) return
 
     const draggingCard = board.lanes.flatMap((l) => l.cards).find((c) => c.id === active.id)
@@ -101,13 +109,25 @@ export default function KanbanBoard({ board }: KanbanBoardProps) {
       const targetLane = board.lanes.find((l) => l.id === targetLaneId)
       if (!targetLane) return
       const targetPosition = overCard ? overCard.position : targetLane.cards.length + 1
-      moveCard.mutate({
-        boardId: board.id,
-        cardId: draggingCard.id,
-        targetLaneId,
-        targetPosition,
-        expectedVersion: draggingCard.version,
-      })
+      moveCard.mutate(
+        {
+          boardId: board.id,
+          cardId: draggingCard.id,
+          targetLaneId,
+          targetPosition,
+          expectedVersion: draggingCard.version,
+        },
+        {
+          onError: () =>
+            dispatchToast(
+              <Toast>
+                <ToastTitle>Move failed</ToastTitle>
+                <ToastBody>The card could not be moved. Please try again.</ToastBody>
+              </Toast>,
+              { intent: 'error', pauseOnHover: true }
+            ),
+        }
+      )
       return
     }
 
@@ -115,12 +135,24 @@ export default function KanbanBoard({ board }: KanbanBoardProps) {
     if (draggingLane) {
       const overLane = board.lanes.find((l) => l.id === over.id)
       if (!overLane) return
-      moveLane.mutate({
-        boardId: board.id,
-        laneId: draggingLane.id,
-        targetPosition: overLane.position,
-        expectedVersion: draggingLane.version,
-      })
+      moveLane.mutate(
+        {
+          boardId: board.id,
+          laneId: draggingLane.id,
+          targetPosition: overLane.position,
+          expectedVersion: draggingLane.version,
+        },
+        {
+          onError: () =>
+            dispatchToast(
+              <Toast>
+                <ToastTitle>Move failed</ToastTitle>
+                <ToastBody>The lane could not be moved. Please try again.</ToastBody>
+              </Toast>,
+              { intent: 'error', pauseOnHover: true }
+            ),
+        }
+      )
     }
   }
 
@@ -130,11 +162,12 @@ export default function KanbanBoard({ board }: KanbanBoardProps) {
     onDragOver: () => ``,
     onDragEnd: ({ active, over }: DragEndEvent) =>
       over ? `Dropped ${active.id} at position near ${over.id}.` : `Drop cancelled.`,
-    onDragCancel: ({ active }: DragStartEvent) => `Move cancelled for ${active.id}.`,
+    onDragCancel: ({ active }) => `Move cancelled for ${active.id}.`,
   }
 
   return (
     <>
+      <Toaster toasterId={toasterId} position="bottom-end" />
       <span id={instructionsId + '-drag-instructions'} className={styles.instructions}>
         Press Space or Enter to start dragging. Use arrow keys to move. Press Space or Enter to
         drop, or Escape to cancel.
@@ -144,6 +177,7 @@ export default function KanbanBoard({ board }: KanbanBoardProps) {
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
         accessibility={{ announcements }}
       >
         <SortableContext items={laneIds} strategy={horizontalListSortingStrategy}>
