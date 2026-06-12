@@ -18,12 +18,14 @@ public static class InvitationTransforms
             Token = rawToken,
             RedemptionLink = $"{frontendBaseUrl}/accept/{rawToken}",
             ExpiresAt = invitation.ExpiresAt,
+            InvitationId = invitation.Id,
         };
     }
 
-    public static IssueInviteResponse ToResponse(string rawToken, DateTimeOffset expiresAt,
-                                                   string frontendBaseUrl)
+    public static IssueInviteResponse ToResponse(Guid invitationId, string rawToken,
+                                                   DateTimeOffset expiresAt, string frontendBaseUrl)
     {
+        new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("invitationId") }.ValidateAndThrow(invitationId);
         new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("rawToken") }.ValidateAndThrow(rawToken);
         new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("frontendBaseUrl") }.ValidateAndThrow(frontendBaseUrl);
         return new IssueInviteResponse
@@ -31,6 +33,7 @@ public static class InvitationTransforms
             Token = rawToken,
             RedemptionLink = $"{frontendBaseUrl}/accept/{rawToken}",
             ExpiresAt = expiresAt,
+            InvitationId = invitationId,
         };
     }
 }

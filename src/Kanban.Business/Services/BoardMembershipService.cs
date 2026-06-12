@@ -74,10 +74,7 @@ public sealed class BoardMembershipService : IBoardMembershipService
             .ValidateAndThrow(boardId);
 
         var callerId = _currentUserService.UserId!.Value;
-        var callerRole = await _boardMemberRepository.FindRoleAsync(boardId, callerId);
-        if (callerRole is null)
-            throw new NotFoundException("board.not_found", "Board not found.");
-
+        var callerRole = await _boardMemberRepository.FindRoleAsync(boardId, callerId) ?? throw new NotFoundException("board.not_found", "Board not found.");
         var members = await _boardMemberRepository.FindAllForBoardAsync(boardId);
 
         var userIds = members.Select(m => m.UserId).ToList();
@@ -99,10 +96,7 @@ public sealed class BoardMembershipService : IBoardMembershipService
             .ValidateAndThrow(frontendBaseUrl);
 
         var callerId = _currentUserService.UserId!.Value;
-        var callerRole = await _boardMemberRepository.FindRoleAsync(boardId, callerId);
-        if (callerRole is null)
-            throw new NotFoundException("board.not_found", "Board not found.");
-
+        var callerRole = await _boardMemberRepository.FindRoleAsync(boardId, callerId) ?? throw new NotFoundException("board.not_found", "Board not found.");
         var auth = await _authorizationService.AuthorizeAsync(
             _currentUserService.Principal,
             new BoardContext(boardId),
@@ -149,7 +143,7 @@ public sealed class BoardMembershipService : IBoardMembershipService
             return;
         }
 
-        await _invitationService.IssueAsync(
+        var (inviteResponse, _) = await _invitationService.IssueAsync(
             request.Email,
             callerId,
             callerSystemRole,
@@ -157,12 +151,9 @@ public sealed class BoardMembershipService : IBoardMembershipService
             boardId: boardId,
             boardRole: ToDomainRole(request.Role));
 
-        var sanitizedEmailForLog = (request.Email ?? string.Empty)
-            .Replace("\r", string.Empty)
-            .Replace("\n", string.Empty);
-
         _logger.LogInformation(
-            "Board invite issued for {Email} to board {BoardId} by {CallerId}", sanitizedEmailForLog, boardId, callerId);
+            "Board invite {InvitationId} issued to board {BoardId} by {CallerId}",
+            inviteResponse.InvitationId, boardId, callerId);
     }
 
     public async Task<BoardMemberDto> ChangeRoleAsync(Guid boardId, Guid userId, ChangeMemberRoleRequest request)
@@ -174,10 +165,7 @@ public sealed class BoardMembershipService : IBoardMembershipService
         ArgumentNullException.ThrowIfNull(request);
 
         var callerId = _currentUserService.UserId!.Value;
-        var callerRole = await _boardMemberRepository.FindRoleAsync(boardId, callerId);
-        if (callerRole is null)
-            throw new NotFoundException("board.not_found", "Board not found.");
-
+        var callerRole = await _boardMemberRepository.FindRoleAsync(boardId, callerId) ?? throw new NotFoundException("board.not_found", "Board not found.");
         var auth = await _authorizationService.AuthorizeAsync(
             _currentUserService.Principal,
             new BoardContext(boardId),
@@ -185,10 +173,7 @@ public sealed class BoardMembershipService : IBoardMembershipService
         if (!auth.Succeeded)
             throw new ForbiddenException("member.forbidden", "Only board owners can change member roles.");
 
-        var preflightTargetRole = await _boardMemberRepository.FindRoleAsync(boardId, userId);
-        if (preflightTargetRole is null)
-            throw new NotFoundException("member.not_found", "Target user is not a member of this board.");
-
+        var preflightTargetRole = await _boardMemberRepository.FindRoleAsync(boardId, userId) ?? throw new NotFoundException("member.not_found", "Target user is not a member of this board.");
         var newRole = ToDomainRole(request.Role);
 
         return await RetryPolicy.ExecuteAsync(async _ =>
@@ -234,10 +219,7 @@ public sealed class BoardMembershipService : IBoardMembershipService
             .ValidateAndThrow(userId);
 
         var callerId = _currentUserService.UserId!.Value;
-        var callerRole = await _boardMemberRepository.FindRoleAsync(boardId, callerId);
-        if (callerRole is null)
-            throw new NotFoundException("board.not_found", "Board not found.");
-
+        var callerRole = await _boardMemberRepository.FindRoleAsync(boardId, callerId) ?? throw new NotFoundException("board.not_found", "Board not found.");
         var auth = await _authorizationService.AuthorizeAsync(
             _currentUserService.Principal,
             new BoardContext(boardId),
@@ -245,10 +227,7 @@ public sealed class BoardMembershipService : IBoardMembershipService
         if (!auth.Succeeded)
             throw new ForbiddenException("member.forbidden", "Only board owners can remove members.");
 
-        var preflightTargetRole = await _boardMemberRepository.FindRoleAsync(boardId, userId);
-        if (preflightTargetRole is null)
-            throw new NotFoundException("member.not_found", "Target user is not a member of this board.");
-
+        var preflightTargetRole = await _boardMemberRepository.FindRoleAsync(boardId, userId) ?? throw new NotFoundException("member.not_found", "Target user is not a member of this board.");
         await RetryPolicy.ExecuteAsync(async _ =>
         {
             using var tx = _transactionFactory.BeginDeferredTransaction(_dbConnection);

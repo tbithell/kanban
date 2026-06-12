@@ -352,6 +352,7 @@ public sealed class BoardMembershipServiceTests
                 Token = "test-token",
                 RedemptionLink = $"{frontendBaseUrl}/accept/test-token",
                 ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
+                InvitationId = Guid.NewGuid(),
             };
             return Task.FromResult<(IssueInviteResponse, bool)>((response, true));
         }

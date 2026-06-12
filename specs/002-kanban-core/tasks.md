@@ -268,6 +268,8 @@ checklist confirmation.
 - [ ] T086 [P] Run the quickstart.md verified feature checklist (11 items) end-to-end on a clean DB — board creation, lane ordering, card drag (mouse + keyboard), Viewer permission denial, non-member 404, board invitation acceptance, concurrent move 409
 - [ ] T087 [P] Verify all six RTL test files pass and assert `getByRole` (not `getByTestId`) throughout: `BoardListPage.test.tsx`, `BoardPage.test.tsx`, `KanbanBoard.test.tsx`, `Lane.test.tsx`, `CardItem.test.tsx`, `BoardMembersPanel.test.tsx`
 
+> **Possible enhancement (non-blocking)**: CA1848 — migrate all `ILogger<T>.LogInformation/Warning/Error` call sites in `Kanban.Business` and `Kanban.Api` to source-generated `[LoggerMessage]` delegates for zero-allocation structured logging. Currently a Roslyn hint (not a warning or error); existing `ILogger<T>` pattern is correct and consistent throughout the codebase. Promote to a task if performance profiling under load shows logging as a hot path.
+
 ---
 
 ## Dependencies & Execution Order

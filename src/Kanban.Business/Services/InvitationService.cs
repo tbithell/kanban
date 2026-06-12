@@ -98,7 +98,7 @@ public sealed class InvitationService : IInvitationService
                     tx.Commit();
                     _logger.LogInformation(
                         "Active invitation refreshed by {IssuedByUserId}", issuedByUserId);
-                    return (InvitationTransforms.ToResponse(refreshToken.Raw, newExpiry, frontendBaseUrl), false);
+                    return (InvitationTransforms.ToResponse(existing.Id, refreshToken.Raw, newExpiry, frontendBaseUrl), false);
                 }
 
                 var registeredUser = await _userRepository.FindByEmailAsync(email, tx);

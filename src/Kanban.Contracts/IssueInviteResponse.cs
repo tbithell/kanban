@@ -13,4 +13,7 @@ public sealed class IssueInviteResponse
 
     /// <summary>UTC timestamp after which this invitation expires and cannot be redeemed.</summary>
     public required DateTimeOffset ExpiresAt { get; init; }
+
+    /// <summary>The stable identifier for this invitation — safe to log.</summary>
+    public required Guid InvitationId { get; init; }
 }
