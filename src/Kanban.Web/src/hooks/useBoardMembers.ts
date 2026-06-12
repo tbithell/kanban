@@ -1,16 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
+import type { ApiError } from './useBoards'
 
 export interface BoardMember {
   userId: string
   displayName: string
   role: 'Owner' | 'Member' | 'Viewer'
   joinedAt: string
-}
-
-export interface ApiError {
-  status: number
-  code?: string
-  title?: string
 }
 
 async function fetchBoardMembers(boardId: string): Promise<BoardMember[]> {

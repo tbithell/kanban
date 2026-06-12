@@ -1,7 +1,5 @@
-using Kanban.Api.Options;
 using Kanban.Business.Interfaces;
 using Kanban.Contracts;
-using Microsoft.Extensions.Options;
 
 namespace Kanban.Api.Endpoints;
 
@@ -24,12 +22,9 @@ public static class BoardMemberEndpoints
             async (
                 Guid boardId,
                 InviteBoardMemberRequest request,
-                IBoardMembershipService membershipService,
-                IOptions<CorsOptions> corsOptions) =>
+                IBoardMembershipService membershipService) =>
             {
-                var frontendBaseUrl = corsOptions.Value.AllowedOrigins.FirstOrDefault()
-                    ?? "http://localhost:5173";
-                await membershipService.InviteAsync(boardId, request, frontendBaseUrl);
+                await membershipService.InviteAsync(boardId, request);
                 return Results.Accepted();
             })
             .WithName("InviteBoardMember")

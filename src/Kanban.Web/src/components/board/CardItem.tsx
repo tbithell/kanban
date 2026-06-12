@@ -75,7 +75,7 @@ export default function CardItem({
       ref={setNodeRef}
       className={`${styles.card}${isDragging ? ` ${styles.cardGhost}` : ''}${!canModify ? ` ${styles.cardViewer}` : ''}`}
       style={style}
-      {...attributes}
+      {...(canModify ? attributes : {})}
       {...(canModify ? listeners : {})}
       {...describedBy}
       {...(canModify ? { 'data-drag-handle': '' } : {})}

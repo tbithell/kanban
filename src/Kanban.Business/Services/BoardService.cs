@@ -1,5 +1,6 @@
 using System.Data;
 using FluentValidation;
+using Kanban.Business.Infrastructure;
 using Kanban.Business.Interfaces;
 using Kanban.Business.Transforms;
 using Kanban.Contracts;
@@ -9,8 +10,6 @@ using Kanban.Domain.Enums;
 using Kanban.Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
-using Polly;
-using Polly.Retry;
 
 namespace Kanban.Business.Services;
 
@@ -25,20 +24,6 @@ public sealed class BoardService : IBoardService
     private readonly IDbConnection _dbConnection;
     private readonly IDbConnectionFactory _transactionFactory;
     private readonly ILogger<BoardService> _logger;
-
-    private static readonly ResiliencePipeline RetryPolicy =
-        new ResiliencePipelineBuilder()
-            .AddRetry(new RetryStrategyOptions
-            {
-                MaxRetryAttempts = 5,
-                Delay = TimeSpan.FromMilliseconds(50),
-                BackoffType = DelayBackoffType.Exponential,
-                UseJitter = true,
-                ShouldHandle = new PredicateBuilder().Handle<Exception>(ex =>
-                    ex.Message.Contains("SQLITE_BUSY", StringComparison.OrdinalIgnoreCase) ||
-                    ex.Message.Contains("database is locked", StringComparison.OrdinalIgnoreCase)),
-            })
-            .Build();
 
     public BoardService(
         IBoardRepository boardRepository,
@@ -84,7 +69,7 @@ public sealed class BoardService : IBoardService
 
         var userId = _currentUserService.UserId!.Value;
 
-        return await RetryPolicy.ExecuteAsync(async ct =>
+        return await SqliteRetryPolicy.Pipeline.ExecuteAsync(async ct =>
         {
             using var tx = _transactionFactory.BeginDeferredTransaction(_dbConnection);
             try
@@ -166,7 +151,7 @@ public sealed class BoardService : IBoardService
         if (!deleteAuth.Succeeded)
             throw new ForbiddenException("board.delete_forbidden", "You do not have permission to delete this board.");
 
-        await RetryPolicy.ExecuteAsync(async ct =>
+        await SqliteRetryPolicy.Pipeline.ExecuteAsync(async ct =>
         {
             using var tx = _transactionFactory.BeginDeferredTransaction(_dbConnection);
             try

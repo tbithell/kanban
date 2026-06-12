@@ -1,5 +1,6 @@
 using System.Data;
 using FluentValidation;
+using Kanban.Business.Infrastructure;
 using Kanban.Business.Interfaces;
 using Kanban.Business.Transforms;
 using Kanban.Contracts;
@@ -8,8 +9,6 @@ using Kanban.Domain.Entities;
 using Kanban.Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
-using Polly;
-using Polly.Retry;
 
 namespace Kanban.Business.Services;
 
@@ -23,20 +22,6 @@ public sealed class LaneService : ILaneService
     private readonly IDbConnection _dbConnection;
     private readonly IDbConnectionFactory _transactionFactory;
     private readonly ILogger<LaneService> _logger;
-
-    private static readonly ResiliencePipeline RetryPolicy =
-        new ResiliencePipelineBuilder()
-            .AddRetry(new RetryStrategyOptions
-            {
-                MaxRetryAttempts = 5,
-                Delay = TimeSpan.FromMilliseconds(50),
-                BackoffType = DelayBackoffType.Exponential,
-                UseJitter = true,
-                ShouldHandle = new PredicateBuilder().Handle<Exception>(ex =>
-                    ex.Message.Contains("SQLITE_BUSY", StringComparison.OrdinalIgnoreCase) ||
-                    ex.Message.Contains("database is locked", StringComparison.OrdinalIgnoreCase)),
-            })
-            .Build();
 
     public LaneService(
         ILaneRepository laneRepository,
@@ -84,7 +69,7 @@ public sealed class LaneService : ILaneService
         if (!auth.Succeeded)
             throw new ForbiddenException("lane.create_forbidden", "You do not have permission to create lanes on this board.");
 
-        return await RetryPolicy.ExecuteAsync(async ct =>
+        return await SqliteRetryPolicy.Pipeline.ExecuteAsync(async ct =>
         {
             using var tx = _transactionFactory.BeginDeferredTransaction(_dbConnection);
             try
@@ -134,7 +119,7 @@ public sealed class LaneService : ILaneService
         if (!auth.Succeeded)
             throw new ForbiddenException("lane.update_forbidden", "You do not have permission to update lanes on this board.");
 
-        return await RetryPolicy.ExecuteAsync(async ct =>
+        return await SqliteRetryPolicy.Pipeline.ExecuteAsync(async ct =>
         {
             using var tx = _transactionFactory.BeginDeferredTransaction(_dbConnection);
             try
@@ -180,7 +165,7 @@ public sealed class LaneService : ILaneService
         var oldPosition = lane.Position;
         var newPosition = request.TargetPosition;
 
-        await RetryPolicy.ExecuteAsync(async ct =>
+        await SqliteRetryPolicy.Pipeline.ExecuteAsync(async ct =>
         {
             using var tx = _transactionFactory.BeginDeferredTransaction(_dbConnection);
             try
@@ -231,7 +216,7 @@ public sealed class LaneService : ILaneService
 
         var deletedPosition = lane.Position;
 
-        await RetryPolicy.ExecuteAsync(async ct =>
+        await SqliteRetryPolicy.Pipeline.ExecuteAsync(async ct =>
         {
             using var tx = _transactionFactory.BeginDeferredTransaction(_dbConnection);
             try

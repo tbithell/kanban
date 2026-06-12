@@ -27,6 +27,67 @@ async function moveCard(vars: MoveCardVars): Promise<Card> {
   return response.json() as Promise<Card>
 }
 
+export function applyCardMoveOptimistic(board: BoardDetail, vars: MoveCardVars): BoardDetail {
+  const sourceCard = board.lanes.flatMap((l) => l.cards).find((c) => c.id === vars.cardId)
+  if (!sourceCard) return board
+
+  const isSameLane = sourceCard.laneId === vars.targetLaneId
+
+  const updatedLanes = board.lanes.map((lane): Lane => {
+    if (isSameLane && lane.id === vars.targetLaneId) {
+      // Same-lane reorder: compact remaining cards first, then insert at target position
+      const without = lane.cards
+        .filter((c) => c.id !== vars.cardId)
+        .sort((a, b) => a.position - b.position)
+        .map((c, i) => ({ ...c, position: i + 1 }))
+      const movedCard: Card = { ...sourceCard, position: vars.targetPosition }
+      return {
+        ...lane,
+        cards: [
+          ...without.filter((c) => c.position < vars.targetPosition),
+          movedCard,
+          ...without
+            .filter((c) => c.position >= vars.targetPosition)
+            .map((c) => ({ ...c, position: c.position + 1 })),
+        ],
+      }
+    }
+
+    if (!isSameLane && lane.id === sourceCard.laneId) {
+      // Cross-lane: remove from source and compact
+      const remaining = lane.cards
+        .filter((c) => c.id !== vars.cardId)
+        .sort((a, b) => a.position - b.position)
+        .map((c, i) => ({ ...c, position: i + 1 }))
+      return { ...lane, cards: remaining }
+    }
+
+    if (!isSameLane && lane.id === vars.targetLaneId) {
+      // Cross-lane: insert into target lane at target position
+      const withoutCard = lane.cards.filter((c) => c.id !== vars.cardId)
+      const movedCard: Card = {
+        ...sourceCard,
+        laneId: vars.targetLaneId,
+        position: vars.targetPosition,
+      }
+      return {
+        ...lane,
+        cards: [
+          ...withoutCard.filter((c) => c.position < vars.targetPosition),
+          movedCard,
+          ...withoutCard
+            .filter((c) => c.position >= vars.targetPosition)
+            .map((c) => ({ ...c, position: c.position + 1 })),
+        ],
+      }
+    }
+
+    return lane
+  })
+
+  return { ...board, lanes: updatedLanes }
+}
+
 export function useMoveCard() {
   const queryClient = useQueryClient()
 
@@ -39,38 +100,7 @@ export function useMoveCard() {
 
       queryClient.setQueryData<BoardDetail>(['boards', vars.boardId], (old) => {
         if (!old) return old
-        const sourceCard = old.lanes.flatMap((l) => l.cards).find((c) => c.id === vars.cardId)
-        if (!sourceCard) return old
-
-        const updatedLanes = old.lanes.map((lane): Lane => {
-          if (lane.id === sourceCard.laneId && lane.id !== vars.targetLaneId) {
-            // Remove from source lane and compact positions
-            const remaining = lane.cards
-              .filter((c) => c.id !== vars.cardId)
-              .sort((a, b) => a.position - b.position)
-              .map((c, i) => ({ ...c, position: i + 1 }))
-            return { ...lane, cards: remaining }
-          }
-          if (lane.id === vars.targetLaneId) {
-            // Insert into target lane at target position
-            const withoutCard = lane.cards.filter((c) => c.id !== vars.cardId)
-            const movedCard: Card = {
-              ...sourceCard,
-              laneId: vars.targetLaneId,
-              position: vars.targetPosition,
-            }
-            const inserted = [
-              ...withoutCard.filter((c) => c.position < vars.targetPosition),
-              movedCard,
-              ...withoutCard
-                .filter((c) => c.position >= vars.targetPosition)
-                .map((c) => ({ ...c, position: c.position + 1 })),
-            ]
-            return { ...lane, cards: inserted }
-          }
-          return lane
-        })
-        return { ...old, lanes: updatedLanes }
+        return applyCardMoveOptimistic(old, vars)
       })
 
       return { previousBoard }

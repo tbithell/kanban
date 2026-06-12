@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Button,
   Field,
@@ -74,7 +74,10 @@ export default function BoardMembersPanel({ boardId, callerRole }: BoardMembersP
   const removeMutation = useRemoveBoardMember()
 
   const isOwner = callerRole === 'Owner'
-  const ownerCount = members?.filter((m) => m.role === 'Owner').length ?? 0
+  const ownerCount = useMemo(
+    () => members?.filter((m) => m.role === 'Owner').length ?? 0,
+    [members]
+  )
 
   function handleInvite() {
     if (!inviteEmail.trim()) return

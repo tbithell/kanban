@@ -39,6 +39,7 @@ public sealed class KanbanWebAppFactory : WebApplicationFactory<Program>
                 ["Authentication:Google:ClientSecret"] = "test-client-secret",
                 ["ConnectionStrings:Kanban"] = $"Data Source={_dbPath}",
                 ["Cors:AllowedOrigins:0"] = "http://localhost:5173",
+                ["Frontend:BaseUrl"] = "http://localhost:5173",
                 ["Seed:AdminEmail"] = AdminEmail,
             });
         });

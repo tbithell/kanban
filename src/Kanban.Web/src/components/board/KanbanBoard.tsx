@@ -96,13 +96,14 @@ export default function KanbanBoard({ board }: KanbanBoardProps) {
     setActiveItem(null)
   }
 
-  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+  const handleDragEnd = ({ over }: DragEndEvent) => {
+    const current = activeItem
     setActiveItem(null)
-    if (!over || active.id === over.id) return
+    if (!over || !current) return
 
-    const draggingCard = board.lanes.flatMap((l) => l.cards).find((c) => c.id === active.id)
-    if (draggingCard) {
-      // Determine target lane and position
+    if (current.type === 'card') {
+      const draggingCard = current.item
+      if (draggingCard.id === over.id) return
       const overCard = board.lanes.flatMap((l) => l.cards).find((c) => c.id === over.id)
       const overLane = board.lanes.find((l) => l.id === over.id)
       const targetLaneId = overCard?.laneId ?? overLane?.id ?? draggingCard.laneId
@@ -131,8 +132,9 @@ export default function KanbanBoard({ board }: KanbanBoardProps) {
       return
     }
 
-    const draggingLane = board.lanes.find((l) => l.id === active.id)
-    if (draggingLane) {
+    if (current.type === 'lane') {
+      const draggingLane = current.item
+      if (draggingLane.id === over.id) return
       const overLane = board.lanes.find((l) => l.id === over.id)
       if (!overLane) return
       moveLane.mutate(

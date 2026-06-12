@@ -1,6 +1,7 @@
 using System.Data;
 using System.Security.Claims;
 using FluentValidation;
+using Kanban.Business.Infrastructure;
 using Kanban.Business.Interfaces;
 using Kanban.Business.Transforms;
 using Kanban.Contracts;
@@ -10,8 +11,6 @@ using Kanban.Domain.Entities;
 using Kanban.Domain.Enums;
 using Kanban.Domain.Events;
 using Microsoft.Extensions.Logging;
-using Polly;
-using Polly.Retry;
 
 namespace Kanban.Business.Services;
 
@@ -22,20 +21,6 @@ public sealed class AuthService : IAuthService
     private readonly IDbConnection _dbConnection;
     private readonly IDbConnectionFactory _transactionFactory;
     private readonly ILogger<AuthService> _logger;
-
-    private static readonly ResiliencePipeline RetryPolicy =
-        new ResiliencePipelineBuilder()
-            .AddRetry(new RetryStrategyOptions
-            {
-                MaxRetryAttempts = 5,
-                Delay = TimeSpan.FromMilliseconds(50),
-                BackoffType = DelayBackoffType.Exponential,
-                UseJitter = true,
-                ShouldHandle = new PredicateBuilder().Handle<Exception>(ex =>
-                    ex.Message.Contains("SQLITE_BUSY", StringComparison.OrdinalIgnoreCase) ||
-                    ex.Message.Contains("database is locked", StringComparison.OrdinalIgnoreCase)),
-            })
-            .Build();
 
     public AuthService(
         IUserRepository userRepository,
@@ -75,7 +60,7 @@ public sealed class AuthService : IAuthService
         new InlineValidator<string> { v => v.RuleFor(x => x).NotEmpty().WithName("email") }.ValidateAndThrow(email);
         ArgumentNullException.ThrowIfNull(claimsIdentity);
 
-        await RetryPolicy.ExecuteAsync(async ct =>
+        await SqliteRetryPolicy.Pipeline.ExecuteAsync(async ct =>
         {
             using var tx = _transactionFactory.BeginDeferredTransaction(_dbConnection);
             try
