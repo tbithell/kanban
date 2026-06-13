@@ -87,6 +87,7 @@ public sealed class BoardMemberRepository : IBoardMemberRepository
     {
         new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }.ValidateAndThrow(boardId);
         new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("userId") }.ValidateAndThrow(userId);
+        new InlineValidator<BoardRole> { v => v.RuleFor(x => x).IsInEnum().WithName("newRole") }.ValidateAndThrow(newRole);
         ArgumentNullException.ThrowIfNull(tx);
 
         const string sql = """

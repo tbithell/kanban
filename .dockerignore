@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+**/node_modules/
+.git/
+.vs/
+.vscode/
+tests/
+specs/
+*.user
+*.suo
+**/.env*
+**/appsettings.Development.json
+src/Kanban.Web/dist/
+src/Kanban.Web/.vite/

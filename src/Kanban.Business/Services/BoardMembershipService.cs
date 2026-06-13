@@ -82,7 +82,11 @@ public sealed class BoardMembershipService : IBoardMembershipService
     {
         new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("boardId") }
             .ValidateAndThrow(boardId);
-        ArgumentNullException.ThrowIfNull(request);
+        new InlineValidator<InviteBoardMemberRequest>
+        {
+            v => v.RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(254),
+            v => v.RuleFor(x => x.Role).IsInEnum()
+        }.ValidateAndThrow(request);
 
         var callerId = _currentUserService.UserId!.Value;
         var callerRole = await _boardMemberRepository.FindRoleAsync(boardId, callerId) ?? throw new NotFoundException("board.not_found", "Board not found.");
@@ -151,7 +155,10 @@ public sealed class BoardMembershipService : IBoardMembershipService
             .ValidateAndThrow(boardId);
         new InlineValidator<Guid> { v => v.RuleFor(x => x).NotEqual(Guid.Empty).WithName("userId") }
             .ValidateAndThrow(userId);
-        ArgumentNullException.ThrowIfNull(request);
+        new InlineValidator<ChangeMemberRoleRequest>
+        {
+            v => v.RuleFor(x => x.Role).IsInEnum()
+        }.ValidateAndThrow(request);
 
         var callerId = _currentUserService.UserId!.Value;
         var callerRole = await _boardMemberRepository.FindRoleAsync(boardId, callerId) ?? throw new NotFoundException("board.not_found", "Board not found.");

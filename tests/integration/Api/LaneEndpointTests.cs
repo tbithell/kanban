@@ -190,7 +190,7 @@ public sealed class LaneEndpointTests : IClassFixture<KanbanWebAppFactory>
 
         var response = await client.PostAsJsonAsync(
             $"/api/v1/boards/{boardId}/lanes/{laneId}/move",
-            new { newPosition = 2, expectedVersion = 99 });
+            new { targetPosition = 2, expectedVersion = 99 });
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
         var body = await response.Content.ReadAsStringAsync();
@@ -211,7 +211,7 @@ public sealed class LaneEndpointTests : IClassFixture<KanbanWebAppFactory>
 
         var response = await client.PostAsJsonAsync(
             $"/api/v1/boards/{boardId}/lanes/{laneId}/move",
-            new { newPosition = 2, expectedVersion = 1 });
+            new { targetPosition = 2, expectedVersion = 1 });
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
