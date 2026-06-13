@@ -2,7 +2,7 @@
 
 A production-quality board-based task management application demonstrating spec-first, constitution-governed agentic development with Claude as the primary code author.
 
-**Author:** Tyler Bithell · [CV](./cv.pdf) <!-- swap path when CV is committed -->
+**Author:** Tyler Bithell · [CV](./Tyler_Bithell_CV_06122026.pdf)) <!-- swap path when CV is committed -->
 
 ---
 
@@ -10,8 +10,8 @@ A production-quality board-based task management application demonstrating spec-
 
 | Artifact | Location |
 |----------|----------|
-| CV | [cv.pdf](./cv.pdf) <!-- update path --> |
-| AI session logs | [session-logs/](./session-logs/) <!-- add logs before submission --> |
+| CV | [cv.pdf](./Tyler_Bithell_CV_06122026.pdf)) |
+| AI session logs | [session-logs/](./session-logs/)  |
 | Feature specification | [specs/002-kanban-core/spec.md](specs/002-kanban-core/spec.md) |
 | Implementation plan | [specs/002-kanban-core/plan.md](specs/002-kanban-core/plan.md) |
 | Task breakdown (100 tasks) | [specs/002-kanban-core/tasks.md](specs/002-kanban-core/tasks.md) |
