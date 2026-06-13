@@ -11,7 +11,7 @@ A production-quality board-based task management application demonstrating spec-
 | Artifact | Location |
 |----------|----------|
 | CV | [cv.pdf](./Tyler_Bithell_CV_06122026.pdf) |
-| AI session logs | [session-logs/](./session-logs/)  |
+| AI session logs | [session-logs/](./sessionlogs/)  |
 | Feature specification | [specs/002-kanban-core/spec.md](specs/002-kanban-core/spec.md) |
 | Implementation plan | [specs/002-kanban-core/plan.md](specs/002-kanban-core/plan.md) |
 | Task breakdown (100 tasks) | [specs/002-kanban-core/tasks.md](specs/002-kanban-core/tasks.md) |
