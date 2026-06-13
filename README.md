@@ -103,10 +103,12 @@ sequenceDiagram
     Auth-->>Api: authorized
     Api->>Svc: CreateCardAsync(command)
     Svc->>Svc: FluentValidation.ValidateAndThrow
-    Svc->>Repo: BeginTransaction(deferred: true)
+    Svc->>DB: BeginTransaction(deferred: true)
     Svc->>Repo: ShiftPositions + InsertCard
     Repo->>DB: UPDATE positions + INSERT card
-    DB-->>Svc: ok
+    DB-->>Repo: ok
+    Repo-->>Svc: ok
+    Svc->>DB: Commit()
     Svc-->>Api: CardDto
     Api-->>Browser: 201 Created + Location header
 ```
