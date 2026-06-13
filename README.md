@@ -274,9 +274,18 @@ TDD was enforced mechanically: each task committed a failing test before the pas
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - [Node.js 22+](https://nodejs.org)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) — required for the Docker path and for integration tests (Testcontainers)
 - [gitleaks](https://github.com/gitleaks/gitleaks) — `brew install gitleaks`
 - A Google Cloud project with an OAuth 2.0 Web Application credential
-  - Authorized redirect URI: `https://localhost:7282/signin-google`
+
+Google Cloud credential setup:
+
+1. Open [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials
+2. Create an **OAuth 2.0 Client ID** (type: Web application)
+3. Add authorized redirect URIs — add one for each path you intend to use:
+   - Local dev: `https://localhost:7282/signin-google`
+   - Docker: `http://localhost:3000/signin-google`
+4. Copy the **Client ID** and **Client Secret** — you will need them below
 
 ## First-time setup
 
@@ -327,24 +336,53 @@ Sign in at http://localhost:5173 using the Google account matching `Seed:AdminEm
 
 ## Running with Docker
 
-A single `docker compose up` starts the API and React frontend together.
+A single `docker compose up` starts the API and React frontend together. No local .NET or Node install is required after this point — Docker handles both.
 
-**One-time Google Cloud Console setup** — add an authorized redirect URI for the Docker origin:
+**Before you start** — verify Docker Desktop is running:
+
+```bash
+docker info   # should print engine details, not an error
+```
+
+**1. Add the Docker redirect URI to Google Cloud Console**
+
+In your OAuth 2.0 credential, add:
 
 ```
 http://localhost:3000/signin-google
 ```
 
+(The local dev URI and the Docker URI are different because they use different ports — both can coexist on the same credential.)
+
+**2. Create your `.env` file**
+
 ```bash
-# 1. Copy the example env file and fill in your secrets
 cp .env.docker.example .env
+```
 
-# 2. Start both containers (builds images on first run, ~2 min)
+Open `.env` and fill in all three values:
+
+```env
+GOOGLE_CLIENT_ID=<your-client-id>
+GOOGLE_CLIENT_SECRET=<your-client-secret>
+ADMIN_EMAIL=<your-google-email>
+```
+
+**3. Build and start**
+
+```bash
 docker compose up --build
+```
 
-# 3. Open the app
+The first build downloads base images and compiles both the API and the React frontend — expect about two minutes. Subsequent starts (without `--build`) are near-instant.
+
+**4. Open the app**
+
+```bash
 open http://localhost:3000
 ```
+
+Sign in with the Google account matching `ADMIN_EMAIL`.
 
 | Service | URL |
 |---------|-----|
@@ -353,14 +391,26 @@ open http://localhost:3000
 | Health (liveness) | http://localhost:3000/health/live |
 | Health (readiness) | http://localhost:3000/health/ready |
 
-The SQLite database persists in a Docker volume (`kanban-data`). To reset:
+The React frontend container (nginx) waits for the API healthcheck to pass before it starts, so the app is ready as soon as `docker compose up` stabilizes.
+
+**Viewing logs**
+
+```bash
+docker compose logs -f api    # API logs only
+docker compose logs -f web    # nginx logs only
+docker compose logs -f        # both, interleaved
+```
+
+**Resetting the database**
+
+The SQLite database persists in a Docker volume (`kanban-data`). To wipe it and start fresh:
 
 ```bash
 docker compose down -v
 docker compose up
 ```
 
-> The chiseled API image is non-root and ~30 MB. For multi-user or multi-replica deploys, swap `ConnectionStrings__Kanban` for a Postgres connection string and rebuild — no other code changes required.
+> For multi-user or multi-replica deploys, swap `ConnectionStrings__Kanban` for a Postgres connection string and rebuild — the `IDbConnection` abstraction means no other code changes are required.
 
 ## Running tests
 

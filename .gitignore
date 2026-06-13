@@ -34,6 +34,8 @@ node_modules/
 dist/
 *.log
 .env*
+# Do not ignore this specific example file
+!.env.docker.example
 
 # SQLite local dev databases
 *.db
